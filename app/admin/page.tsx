@@ -359,6 +359,11 @@ function MonthlyRecords() {
   const [loading, setLoading] = useState(true);
   const [editingRecord, setEditingRecord] = useState<RecordWithEmployee | null>(null);
 
+  // 필터 및 검색 states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedDate, setSelectedDate] = useState("");
+
   // Form states for editing
   const [workDate, setWorkDate] = useState("");
   const [clockIn, setClockIn] = useState("");
@@ -426,6 +431,24 @@ function MonthlyRecords() {
     }
   };
 
+  // 클라이언트 단 필터링 적용
+  const filteredRecords = records.filter(rec => {
+    const matchesName = rec.employees?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesStatus = true;
+    if (statusFilter === 'working') {
+      matchesStatus = rec.status === 'working';
+    } else if (statusFilter === 'completed') {
+      matchesStatus = rec.status === 'completed' && !!rec.clock_out;
+    } else if (statusFilter === 'no_clock_out') {
+      matchesStatus = rec.status === 'completed' && !rec.clock_out;
+    }
+
+    const matchesDate = selectedDate ? rec.work_date === selectedDate : true;
+
+    return matchesName && matchesStatus && matchesDate;
+  });
+
   return (
     <div className="animate-in fade-in duration-300 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -434,11 +457,50 @@ function MonthlyRecords() {
           <p className="text-gray-500 text-xs md:text-sm">Geçmiş ve mevcut tüm çalışma logları</p>
         </div>
         <div>
-          <input
-            type="month"
+          <input 
+            type="month" 
             value={yearMonth}
-            onChange={(e) => setYearMonth(e.target.value)}
+            onChange={(e) => {
+              setYearMonth(e.target.value);
+              setSelectedDate(""); // 연/월이 변경되면 일자 필터 초기화
+            }}
             className="w-full sm:w-auto p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium text-sm bg-white"
+          />
+        </div>
+      </div>
+
+      {/* 필터 및 검색 바 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Personel Ara (İsim)</label>
+          <input 
+            type="text" 
+            placeholder="İsim ile ara..." 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+            className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Durum Filtresi</label>
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)} 
+            className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-700"
+          >
+            <option value="all">Tüm Durumlar</option>
+            <option value="working">Çalışıyor</option>
+            <option value="completed">Tamamlandı</option>
+            <option value="no_clock_out">Çıkış Yapılmadı</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Tarih Filtresi</label>
+          <input 
+            type="date" 
+            value={selectedDate} 
+            onChange={(e) => setSelectedDate(e.target.value)} 
+            className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none text-gray-700"
           />
         </div>
       </div>
@@ -462,12 +524,12 @@ function MonthlyRecords() {
               <tr>
                 <td colSpan={7} className="p-8 text-center text-gray-500">Yükleniyor...</td>
               </tr>
-            ) : records.length === 0 ? (
+            ) : filteredRecords.length === 0 ? (
               <tr>
                 <td colSpan={7} className="p-8 text-center text-gray-500">Kayıt bulunamadı.</td>
               </tr>
             ) : (
-              records.map((rec) => (
+              filteredRecords.map((rec) => (
                 <tr key={rec.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="p-4 text-gray-800 font-medium">{rec.work_date}</td>
                   <td className="p-4 text-gray-800">{rec.employees?.name}</td>
@@ -509,10 +571,10 @@ function MonthlyRecords() {
       <div className="block md:hidden space-y-4">
         {loading ? (
           <div className="text-center py-8 text-gray-500">Yükleniyor...</div>
-        ) : records.length === 0 ? (
+        ) : filteredRecords.length === 0 ? (
           <div className="text-center py-8 bg-white border border-gray-100 rounded-xl text-gray-500">Kayıt bulunamadı.</div>
         ) : (
-          records.map((rec) => (
+          filteredRecords.map((rec) => (
             <div key={rec.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-3">
               <div className="flex justify-between items-center">
                 <span className="font-bold text-gray-800">{rec.work_date}</span>
