@@ -18,7 +18,7 @@ export default function AdminDashboard() {
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [showChangePwModal, setShowChangePwModal] = useState(false);
-  
+
   // 비밀번호 변경용 states
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -98,12 +98,12 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-500 mt-1">Lütfen yönetici şifresini girin</p>
           </div>
           <form onSubmit={handleAuthSubmit} className="space-y-4">
-            <input 
-              type="password" 
-              placeholder="Şifre" 
-              value={authPassword} 
-              onChange={(e) => setAuthPassword(e.target.value)} 
-              className="w-full p-3 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg outline-none" 
+            <input
+              type="password"
+              placeholder="Şifre"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg outline-none"
             />
             {authError && <p className="text-red-500 text-sm text-center font-medium">{authError}</p>}
             <button type="submit" className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm">Giriş Yap</button>
@@ -118,8 +118,8 @@ export default function AdminDashboard() {
       {/* Mobile Header */}
       <header className="bg-white border-b border-gray-200 p-4 flex justify-between items-center md:hidden">
         <h2 className="text-lg font-bold text-gray-800">Yönetici Paneli</h2>
-        <button 
-          onClick={() => setIsSidebarOpen(true)} 
+        <button
+          onClick={() => setIsSidebarOpen(true)}
           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <Menu className="w-6 h-6" />
@@ -128,9 +128,9 @@ export default function AdminDashboard() {
 
       {/* Mobile Drawer Overlay */}
       {isSidebarOpen && (
-        <div 
-          onClick={() => setIsSidebarOpen(false)} 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-200" 
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-200"
         />
       )}
 
@@ -140,39 +140,39 @@ export default function AdminDashboard() {
           <div className="p-6 border-b border-gray-100 bg-blue-600/5 flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold text-gray-800">Yönetici Paneli</h2>
-              <p className="text-xs text-gray-500 mt-1">İnistanbul Restoran</p>
+              <p className="text-xs text-gray-500 mt-1">inseoul Kore Restoran</p>
             </div>
-            <button 
-              onClick={() => setIsSidebarOpen(false)} 
+            <button
+              onClick={() => setIsSidebarOpen(false)}
               className="p-1 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
           <nav className="space-y-1 p-4">
-            <button 
+            <button
               onClick={() => { setActiveTab("realtime"); setIsSidebarOpen(false); }}
               className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'realtime' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               <Clock className="w-5 h-5 mr-3" />
               Canlı Çalışma Panosu
             </button>
-            <button 
+            <button
               onClick={() => { setActiveTab("records"); setIsSidebarOpen(false); }}
               className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'records' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               <CalendarDays className="w-5 h-5 mr-3" />
               Aylık Çalışma Kayıtları
             </button>
-            <button 
+            <button
               onClick={() => { setActiveTab("employees"); setIsSidebarOpen(false); }}
               className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'employees' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               <Users className="w-5 h-5 mr-3" />
               Personel Yönetimi
             </button>
-            
-            <button 
+
+            <button
               onClick={() => {
                 setShowChangePwModal(true);
                 setIsSidebarOpen(false);
@@ -211,35 +211,35 @@ export default function AdminDashboard() {
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Mevcut Şifre</label>
-                <input 
-                  type="password" 
-                  required 
-                  value={currentPassword} 
-                  onChange={(e) => setCurrentPassword(e.target.value)} 
-                  className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" 
+                <input
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700"
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Yeni Şifre</label>
-                <input 
-                  type="password" 
-                  required 
-                  value={newPassword} 
-                  onChange={(e) => setNewPassword(e.target.value)} 
-                  className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" 
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700"
                 />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Yeni Şifre Tekrar</label>
-                <input 
-                  type="password" 
-                  required 
-                  value={confirmPassword} 
-                  onChange={(e) => setConfirmPassword(e.target.value)} 
-                  className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" 
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700"
                 />
               </div>
-              
+
               {changePwError && <p className="text-red-500 text-xs font-semibold text-center">{changePwError}</p>}
               {changePwSuccess && <p className="text-green-600 text-xs font-semibold text-center">{changePwSuccess}</p>}
 
@@ -434,8 +434,8 @@ function MonthlyRecords() {
           <p className="text-gray-500 text-xs md:text-sm">Geçmiş ve mevcut tüm çalışma logları</p>
         </div>
         <div>
-          <input 
-            type="month" 
+          <input
+            type="month"
             value={yearMonth}
             onChange={(e) => setYearMonth(e.target.value)}
             className="w-full sm:w-auto p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium text-sm bg-white"
@@ -475,7 +475,7 @@ function MonthlyRecords() {
                     {new Date(rec.clock_in).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="p-4 text-gray-600">
-                    {rec.clock_out 
+                    {rec.clock_out
                       ? new Date(rec.clock_out).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
                       : "-"}
                   </td>
@@ -490,7 +490,7 @@ function MonthlyRecords() {
                     )}
                   </td>
                   <td className="p-4 text-center">
-                    <button 
+                    <button
                       onClick={() => openEditModal(rec)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors font-medium"
                     >
@@ -538,7 +538,7 @@ function MonthlyRecords() {
                 </div>
               )}
               <div className="pt-2 flex justify-end">
-                <button 
+                <button
                   onClick={() => openEditModal(rec)}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors font-semibold"
                 >
@@ -711,7 +711,7 @@ function EmployeeManagement() {
           <h3 className="text-xl md:text-2xl font-bold text-gray-800">Personel Yönetimi</h3>
           <p className="text-gray-500 text-xs md:text-sm">Tüm restoran kadrosunun listesi</p>
         </div>
-        <button 
+        <button
           onClick={openAddModal}
           className="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-sm text-sm"
         >
@@ -761,7 +761,7 @@ function EmployeeManagement() {
                     )}
                   </td>
                   <td className="p-4 text-right">
-                    <button 
+                    <button
                       onClick={() => openEditModal(emp)}
                       className="text-blue-600 hover:text-blue-700 text-sm font-medium mr-4 transition-colors inline-flex items-center gap-1"
                     >
@@ -797,7 +797,7 @@ function EmployeeManagement() {
                 Saatlik Ücret: <span className="font-bold text-gray-800">{Number(emp.hourly_rate).toLocaleString()} TL</span>
               </div>
               <div className="pt-2 flex justify-end">
-                <button 
+                <button
                   onClick={() => openEditModal(emp)}
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors inline-flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg"
                 >
@@ -863,8 +863,8 @@ function EmployeeManagement() {
               </div>
               <div className="flex items-center justify-between py-2 border-t border-b border-gray-50">
                 <span className="text-sm font-semibold text-gray-700">Çalışma Durumu</span>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsActive(!isActive)}
                   className="text-blue-600 transition-colors"
                 >
