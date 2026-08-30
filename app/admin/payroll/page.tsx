@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Download, Calculator, Calendar } from "lucide-react";
+import { Download, Calculator, Calendar, ArrowLeft } from "lucide-react";
 import { calculateMonthlyPayroll, calculateWorkHours, PayrollSummary } from "@/lib/payroll";
 import type { Employee, AttendanceRecord } from "@/types";
 
@@ -54,27 +54,21 @@ export default function PayrollPage() {
     }
   };
 
-
   // 급여 데이터 연산
   const loadPayrollData = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. 직원 전체 목록 가져오기 (비활성화 상태여도 이번 달 근무 기록이 있으면 급여를 정산해줘야 함)
       const empRes = await fetch("/api/employees?all=true");
       const empData = await empRes.json();
       const employees: Employee[] = empData.employees || [];
 
-      // 2. 선택한 연/월의 근태 기록 가져오기
       const attRes = await fetch(`/api/attendance?yearMonth=${yearMonth}`);
       const attData = await attRes.json();
       const records: RecordWithEmployee[] = attData.records || [];
       
       setRawRecords(records);
 
-      // 3. 비즈니스 로직(lib/payroll.ts)을 사용해 급여 정산 연산
       const summaries = calculateMonthlyPayroll(employees, records);
-      
-      // 근무 시간이 0시간보다 큰 직원만 정산 대상에 노출 (불필요한 무직원 제거)
       setPayrollSummaries(summaries.filter(s => s.totalWorkHours > 0));
     } catch (e) {
       console.error("Payroll calculation error:", e);
@@ -84,10 +78,12 @@ export default function PayrollPage() {
   }, [yearMonth]);
 
   useEffect(() => {
-    loadPayrollData();
-  }, [loadPayrollData]);
+    if (isAuthenticated) {
+      loadPayrollData();
+    }
+  }, [loadPayrollData, isAuthenticated]);
 
-  // 엑셀(CSV) 다운로드 핸들러 (실제 데이터 반영)
+  // 엑셀(CSV) 다운로드 핸들러
   const handleDownloadCSV = () => {
     if (rawRecords.length === 0) {
       alert("Bu aya ait indirilecek çalışma kaydı bulunmamaktadır.");
@@ -96,10 +92,8 @@ export default function PayrollPage() {
 
     setIsDownloading(true);
     
-    // CSV 헤더 (터키어)
     let csvContent = "Personel Adı,Çalışma Tarihi,Giriş,Çıkış,Mola Süresi (dk),Fiili Çalışma Süresi,Saatlik Ücret,Hesaplanan Tutar\n";
     
-    // 개별 근태 기록별 정산 데이터 행 추가
     rawRecords.forEach(rec => {
       const workHours = calculateWorkHours(rec.clock_in, rec.clock_out, rec.break_minutes);
       const hourlyRate = rec.employees?.hourly_rate || 0;
@@ -116,7 +110,6 @@ export default function PayrollPage() {
       csvContent += `"${empName}","${workDate}","${clockIn}","${clockOut}",${breakMins},${workHours},${hourlyRate},${basePay}\n`;
     });
 
-    // UTF-8 BOM 추가 (엑셀에서 한글 및 터키어 깨짐 방지)
     const BOM = "\uFEFF";
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     
@@ -158,52 +151,59 @@ export default function PayrollPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in duration-300">
         
-        {/* 헤더 및 필터 영역 */}
+        {/* Back Link */}
+        <a href="/admin" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          Yönetici Paneline Geri Dön
+        </a>
+
+        {/* Header and Filter area */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
               <Calculator className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Maaş Hesaplama ve Yönetim</h2>
-              <p className="text-gray-500 text-sm mt-1">Personel bazlı çalışma saatleri ve hafta tatili ücretinin otomatik hesaplanması</p>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800">Maaş Hesaplama ve Yönetim</h2>
+              <p className="text-gray-500 text-xs md:text-sm mt-1">Personel bazlı çalışma saatleri ve hafta tatili ücretinin otomatik hesaplanması</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2">
-              <Calendar className="w-5 h-5 text-gray-500 mr-2" />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm">
+              <Calendar className="w-4 h-4 text-gray-500 mr-2" />
               <input 
                 type="month" 
                 value={yearMonth}
                 onChange={(e) => setYearMonth(e.target.value)}
-                className="bg-transparent border-none focus:ring-0 text-gray-700 font-medium outline-none"
+                className="bg-transparent border-none focus:ring-0 text-gray-700 font-medium outline-none w-full"
               />
             </div>
             <button 
               onClick={handleDownloadCSV}
               disabled={isDownloading || loading}
-              className="flex items-center px-5 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm"
+              className="flex items-center justify-center px-5 py-2.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm text-sm"
             >
-              <Download className="w-5 h-5 mr-2" />
+              <Download className="w-4 h-4 mr-2" />
               {isDownloading ? "İndiriliyor..." : "CSV İndir"}
             </button>
           </div>
         </div>
 
-        {/* 직원별 급여 요약 테이블 */}
+        {/* Summary Table or Card view */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+          <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <h3 className="text-lg font-bold text-gray-800">Personel Bazlı Maaş Özeti ({yearMonth})</h3>
-            <span className="text-xs bg-blue-50 text-blue-600 font-bold px-3 py-1 rounded-full border border-blue-100">
+            <span className="text-xs bg-blue-50 text-blue-600 font-bold px-3 py-1 rounded-full border border-blue-100 self-start sm:self-auto">
               Fiili Çalışan Personel Sayısı: {payrollSummaries.length}
             </span>
           </div>
-          
-          <div className="overflow-x-auto">
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
@@ -253,6 +253,41 @@ export default function PayrollPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Cards View */}
+          <div className="block md:hidden p-4 space-y-4">
+            {loading ? (
+              <div className="text-center py-8 text-gray-500">Hesaplanıyor...</div>
+            ) : payrollSummaries.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">Bu aya ait çalışma kaydı veya hesaplanacak maaş bulunamadı.</div>
+            ) : (
+              payrollSummaries.map((payroll) => (
+                <div key={payroll.employeeId} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">
+                      {payroll.employeeName.charAt(0)}
+                    </div>
+                    <span className="font-bold text-gray-800 text-base">{payroll.employeeName}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 pt-2 border-t border-gray-50">
+                    <div>Çalışma: <span className="font-bold text-gray-800">{payroll.totalWorkHours} saat</span></div>
+                    <div>Temel Maaş: <span className="font-semibold text-gray-800">{payroll.basePay.toLocaleString()} TL</span></div>
+                    <div>Hafta Tatili:{" "}
+                      {payroll.weeklyHolidayAllowance > 0 
+                        ? <span className="text-green-600 font-semibold">+{payroll.weeklyHolidayAllowance.toLocaleString()} TL</span>
+                        : <span className="text-gray-400">0 TL</span>
+                      }
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-gray-50 flex justify-between items-center text-sm">
+                    <span className="text-xs text-gray-400">Toplam Ödenecek:</span>
+                    <span className="font-bold text-blue-600 text-base">{payroll.totalPay.toLocaleString()} TL</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
         </div>
 
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, Clock, CalendarDays, Edit2, UserPlus, ToggleLeft, ToggleRight, Check, X, RefreshCw, Key } from "lucide-react";
+import { Users, Clock, CalendarDays, Edit2, UserPlus, ToggleLeft, ToggleRight, Check, X, RefreshCw, Key, Menu } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@/types";
 
 type RecordWithEmployee = AttendanceRecord & {
@@ -13,6 +13,7 @@ type RecordWithEmployee = AttendanceRecord & {
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("realtime");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
@@ -113,31 +114,58 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+      {/* Mobile Header */}
+      <header className="bg-white border-b border-gray-200 p-4 flex justify-between items-center md:hidden">
+        <h2 className="text-lg font-bold text-gray-800">Yönetici Paneli</h2>
+        <button 
+          onClick={() => setIsSidebarOpen(true)} 
+          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      </header>
+
+      {/* Mobile Drawer Overlay */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-200" 
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between shadow-sm">
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-white z-50 flex flex-col justify-between shadow-lg transform transition-transform duration-300 md:relative md:translate-x-0 md:shadow-sm md:z-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:flex'}`}>
         <div>
-          <div className="p-6 border-b border-gray-100 bg-blue-600/5">
-            <h2 className="text-xl font-bold text-gray-800">Yönetici Paneli</h2>
-            <p className="text-xs text-gray-500 mt-1">İnistanbul Restoran</p>
+          <div className="p-6 border-b border-gray-100 bg-blue-600/5 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Yönetici Paneli</h2>
+              <p className="text-xs text-gray-500 mt-1">İnistanbul Restoran</p>
+            </div>
+            <button 
+              onClick={() => setIsSidebarOpen(false)} 
+              className="p-1 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
           <nav className="space-y-1 p-4">
             <button 
-              onClick={() => setActiveTab("realtime")}
+              onClick={() => { setActiveTab("realtime"); setIsSidebarOpen(false); }}
               className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'realtime' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               <Clock className="w-5 h-5 mr-3" />
               Canlı Çalışma Panosu
             </button>
             <button 
-              onClick={() => setActiveTab("records")}
+              onClick={() => { setActiveTab("records"); setIsSidebarOpen(false); }}
               className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'records' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               <CalendarDays className="w-5 h-5 mr-3" />
               Aylık Çalışma Kayıtları
             </button>
             <button 
-              onClick={() => setActiveTab("employees")}
+              onClick={() => { setActiveTab("employees"); setIsSidebarOpen(false); }}
               className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'employees' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
             >
               <Users className="w-5 h-5 mr-3" />
@@ -147,6 +175,7 @@ export default function AdminDashboard() {
             <button 
               onClick={() => {
                 setShowChangePwModal(true);
+                setIsSidebarOpen(false);
                 setChangePwError("");
                 setChangePwSuccess("");
               }}
@@ -165,7 +194,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {activeTab === "realtime" && <RealtimeBoard />}
         {activeTab === "records" && <MonthlyRecords />}
         {activeTab === "employees" && <EmployeeManagement />}
@@ -248,12 +277,10 @@ function RealtimeBoard() {
 
   useEffect(() => {
     fetchRealtime();
-    // 30 saniyede bir otomatik yenile
     const interval = setInterval(fetchRealtime, 30000);
     return () => clearInterval(interval);
   }, [fetchRealtime]);
 
-  // 경과 시간 계산용 컴포넌트
   const Timer = ({ clockIn }: { clockIn: string }) => {
     const [elapsed, setElapsed] = useState("");
 
@@ -276,11 +303,11 @@ function RealtimeBoard() {
     <div className="animate-in fade-in duration-300">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="text-2xl font-bold text-gray-800">Canlı Çalışma Panosu</h3>
-          <p className="text-gray-500 text-sm">Şu an aktif çalışan personel durumu</p>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-800">Canlı Çalışma Panosu</h3>
+          <p className="text-gray-500 text-xs md:text-sm">Şu an aktif çalışan personel durumu</p>
         </div>
-        <button onClick={fetchRealtime} className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-all flex items-center gap-2 text-sm">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        <button onClick={fetchRealtime} className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-all flex items-center gap-2 text-xs md:text-sm shadow-sm">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Yenile
         </button>
       </div>
@@ -360,8 +387,6 @@ function MonthlyRecords() {
   const openEditModal = (rec: RecordWithEmployee) => {
     setEditingRecord(rec);
     setWorkDate(rec.work_date);
-    
-    // ISO string format 변환
     setClockIn(new Date(rec.clock_in).toISOString().slice(0, 16));
     setClockOut(rec.clock_out ? new Date(rec.clock_out).toISOString().slice(0, 16) : "");
     setBreakMinutes(rec.break_minutes);
@@ -402,23 +427,24 @@ function MonthlyRecords() {
   };
 
   return (
-    <div className="animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div className="animate-in fade-in duration-300 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-2xl font-bold text-gray-800">Aylık Çalışma Kayıtları</h3>
-          <p className="text-gray-500 text-sm">Geçmiş ve mevcut tüm çalışma logları</p>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-800">Aylık Çalışma Kayıtları</h3>
+          <p className="text-gray-500 text-xs md:text-sm">Geçmiş ve mevcut tüm çalışma logları</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div>
           <input 
             type="month" 
             value={yearMonth}
             onChange={(e) => setYearMonth(e.target.value)}
-            className="p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium"
+            className="w-full sm:w-auto p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-700 font-medium text-sm bg-white"
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
@@ -479,6 +505,52 @@ function MonthlyRecords() {
         </table>
       </div>
 
+      {/* Mobile Cards View */}
+      <div className="block md:hidden space-y-4">
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Yükleniyor...</div>
+        ) : records.length === 0 ? (
+          <div className="text-center py-8 bg-white border border-gray-100 rounded-xl text-gray-500">Kayıt bulunamadı.</div>
+        ) : (
+          records.map((rec) => (
+            <div key={rec.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-gray-800">{rec.work_date}</span>
+                <span className="font-semibold text-gray-700">{rec.employees?.name}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 pt-2 border-t border-gray-50">
+                <div>Giriş: <span className="font-medium text-gray-800">{new Date(rec.clock_in).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                <div>Çıkış: <span className="font-medium text-gray-800">{rec.clock_out ? new Date(rec.clock_out).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : "-"}</span></div>
+                <div>Mola: <span className="font-medium text-gray-800">{rec.break_minutes} dk</span></div>
+                <div>Durum:{" "}
+                  {rec.status === 'working' ? (
+                    <span className="text-green-600 font-bold">Çalışıyor</span>
+                  ) : rec.clock_out ? (
+                    <span className="text-gray-500 font-medium">Tamamlandı</span>
+                  ) : (
+                    <span className="text-red-500 font-bold">Çıkış Yapılmadı</span>
+                  )}
+                </div>
+              </div>
+              {rec.notes && (
+                <div className="text-xs bg-gray-50 p-2.5 rounded-lg text-gray-500 italic">
+                  Not: {rec.notes}
+                </div>
+              )}
+              <div className="pt-2 flex justify-end">
+                <button 
+                  onClick={() => openEditModal(rec)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors font-semibold"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  Düzenle
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Edit Attendance Record Modal */}
       {editingRecord && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
@@ -490,40 +562,40 @@ function MonthlyRecords() {
             <form onSubmit={handleUpdate} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Personel</label>
-                <input type="text" disabled value={editingRecord.employees?.name} className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed" />
+                <input type="text" disabled value={editingRecord.employees?.name} className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Tarih</label>
-                  <input type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                  <input type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Mola Süresi (dk)</label>
-                  <input type="number" required min={0} value={breakMinutes} onChange={(e) => setBreakMinutes(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Mola (dk)</label>
+                  <input type="number" required min={0} value={breakMinutes} onChange={(e) => setBreakMinutes(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm" />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Giriş Tarihi & Saati</label>
-                <input type="datetime-local" required value={clockIn} onChange={(e) => setClockIn(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                <input type="datetime-local" required value={clockIn} onChange={(e) => setClockIn(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Çıkış Tarihi & Saati</label>
-                <input type="datetime-local" value={clockOut} onChange={(e) => setClockOut(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                <input type="datetime-local" value={clockOut} onChange={(e) => setClockOut(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Çalışma Durumu</label>
-                <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700">
+                <select value={status} onChange={(e) => setStatus(e.target.value as any)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm bg-white">
                   <option value="working">Çalışıyor (working)</option>
                   <option value="completed">Tamamlandı (completed)</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Not</label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm" rows={2} />
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-xs" rows={2} />
               </div>
               <div className="flex gap-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setEditingRecord(null)} className="flex-1 py-2.5 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors">İptal</button>
-                <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors">Kaydet</button>
+                <button type="button" onClick={() => setEditingRecord(null)} className="flex-1 py-2.5 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors text-sm">İptal</button>
+                <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors text-sm">Kaydet</button>
               </div>
             </form>
           </div>
@@ -633,22 +705,23 @@ function EmployeeManagement() {
   };
 
   return (
-    <div className="animate-in fade-in duration-300">
-      <div className="flex justify-between items-center mb-6">
+    <div className="animate-in fade-in duration-300 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-2xl font-bold text-gray-800">Personel Yönetimi</h3>
-          <p className="text-gray-500 text-sm">Tüm restoran kadrosunun listesi</p>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-800">Personel Yönetimi</h3>
+          <p className="text-gray-500 text-xs md:text-sm">Tüm restoran kadrosunun listesi</p>
         </div>
         <button 
           onClick={openAddModal}
-          className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-sm text-sm"
+          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-sm text-sm"
         >
           <UserPlus className="w-4 h-4" />
           Yeni Personel Ekle
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
@@ -703,6 +776,40 @@ function EmployeeManagement() {
         </table>
       </div>
 
+      {/* Mobile Cards View */}
+      <div className="block md:hidden space-y-4">
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Yükleniyor...</div>
+        ) : employees.length === 0 ? (
+          <div className="text-center py-8 bg-white border border-gray-100 rounded-xl text-gray-500">Kayıtlı personel bulunmuyor.</div>
+        ) : (
+          employees.map((emp) => (
+            <div key={emp.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-gray-800 text-lg">{emp.name}</span>
+                {emp.is_active ? (
+                  <span className="px-2.5 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-100">Aktif</span>
+                ) : (
+                  <span className="px-2.5 py-1 bg-red-50 text-red-700 text-xs font-bold rounded-full border border-red-100">Pasif</span>
+                )}
+              </div>
+              <div className="text-sm text-gray-600 pt-2 border-t border-gray-50">
+                Saatlik Ücret: <span className="font-bold text-gray-800">{Number(emp.hourly_rate).toLocaleString()} TL</span>
+              </div>
+              <div className="pt-2 flex justify-end">
+                <button 
+                  onClick={() => openEditModal(emp)}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors inline-flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-lg"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  Düzenle
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Add Employee Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
@@ -714,19 +821,19 @@ function EmployeeManagement() {
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Personel Adı</label>
-                <input type="text" required placeholder="Ad Soyad" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                <input type="text" required placeholder="Ad Soyad" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">PIN Kodu (4 Hane)</label>
-                <input type="password" required maxLength={4} placeholder="****" value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center" />
+                <input type="password" required maxLength={4} placeholder="****" value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center text-sm outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Saatlik Ücret (TL)</label>
-                <input type="number" required min={0} value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                <input type="number" required min={0} value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm outline-none" />
               </div>
               <div className="flex gap-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors">İptal</button>
-                <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors">Kaydet</button>
+                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors text-sm">İptal</button>
+                <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors text-sm">Kaydet</button>
               </div>
             </form>
           </div>
@@ -744,15 +851,15 @@ function EmployeeManagement() {
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Personel Adı</label>
-                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">PIN Kodu (4 Hane)</label>
-                <input type="password" required maxLength={4} value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center" />
+                <input type="password" required maxLength={4} value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center text-sm outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Saatlik Ücret (TL)</label>
-                <input type="number" required min={0} value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700" />
+                <input type="number" required min={0} value={hourlyRate} onChange={(e) => setHourlyRate(Number(e.target.value))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 text-sm outline-none" />
               </div>
               <div className="flex items-center justify-between py-2 border-t border-b border-gray-50">
                 <span className="text-sm font-semibold text-gray-700">Çalışma Durumu</span>
@@ -765,8 +872,8 @@ function EmployeeManagement() {
                 </button>
               </div>
               <div className="flex gap-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setEditingEmployee(null)} className="flex-1 py-2.5 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors">İptal</button>
-                <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors">Kaydet</button>
+                <button type="button" onClick={() => setEditingEmployee(null)} className="flex-1 py-2.5 bg-gray-50 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-colors text-sm">İptal</button>
+                <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors text-sm">Kaydet</button>
               </div>
             </form>
           </div>
