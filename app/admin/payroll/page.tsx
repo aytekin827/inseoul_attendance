@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Download, Calculator, Calendar, ArrowLeft } from "lucide-react";
 import { calculateMonthlyPayroll, calculateWorkHours, PayrollSummary } from "@/lib/payroll";
 import type { Employee, AttendanceRecord } from "@/types";
+import * as XLSX from "xlsx";
 
 type RecordWithEmployee = AttendanceRecord & {
   employees: {
@@ -83,47 +84,51 @@ export default function PayrollPage() {
     }
   }, [loadPayrollData, isAuthenticated]);
 
-  // 엑셀(CSV) 다운로드 핸들러
-  const handleDownloadCSV = () => {
+  // 엑셀(.xlsx) 다운로드 핸들러
+  const handleDownloadExcel = () => {
     if (rawRecords.length === 0) {
       alert("Bu aya ait indirilecek çalışma kaydı bulunmamaktadır.");
       return;
     }
 
     setIsDownloading(true);
-    
-    let csvContent = "Personel Adı,Çalışma Tarihi,Giriş,Çıkış,Mola Süresi (dk),Fiili Çalışma Süresi,Saatlik Ücret,Hesaplanan Tutar\n";
-    
-    rawRecords.forEach(rec => {
+
+    const excelData = rawRecords.map(rec => {
       const workHours = calculateWorkHours(rec.clock_in, rec.clock_out, rec.break_minutes);
       const hourlyRate = rec.employees?.hourly_rate || 0;
       const basePay = Math.floor(workHours * hourlyRate);
 
-      const empName = rec.employees?.name || "Bilinmeyen Personel";
-      const workDate = rec.work_date;
-      const clockIn = new Date(rec.clock_in).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const clockOut = rec.clock_out 
-        ? new Date(rec.clock_out).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        : "-";
-      const breakMins = rec.break_minutes;
-      
-      csvContent += `"${empName}","${workDate}","${clockIn}","${clockOut}",${breakMins},${workHours},${hourlyRate},${basePay}\n`;
+      return {
+        "Personel Adı": rec.employees?.name || "Bilinmeyen Personel",
+        "Çalışma Tarihi": rec.work_date,
+        "Giriş Saati": new Date(rec.clock_in).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        "Çıkış Saati": rec.clock_out 
+          ? new Date(rec.clock_out).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          : "-",
+        "Mola Süresi (dk)": rec.break_minutes,
+        "Fiili Çalışma Süresi (saat)": workHours,
+        "Saatlik Ücret (TL)": hourlyRate,
+        "Hesaplanan Tutar (TL)": basePay
+      };
     });
 
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Maas_Detayi_${yearMonth}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => setIsDownloading(false), 500);
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Maaş Detayı");
+      
+      const maxLens = Object.keys(excelData[0]).map(key => {
+        return Math.max(key.length * 2, ...excelData.map(row => String((row as any)[key]).length));
+      });
+      worksheet["!cols"] = maxLens.map(len => ({ wch: len + 3 }));
+
+      XLSX.writeFile(workbook, `Maas_Detayi_${yearMonth}.xlsx`);
+    } catch (error) {
+      console.error("Excel generation error:", error);
+      alert("Excel dosyası oluşturulurken bir hata oluştu.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -183,12 +188,12 @@ export default function PayrollPage() {
               />
             </div>
             <button 
-              onClick={handleDownloadCSV}
+              onClick={handleDownloadExcel}
               disabled={isDownloading || loading}
               className="flex items-center justify-center px-5 py-2.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm text-sm"
             >
               <Download className="w-4 h-4 mr-2" />
-              {isDownloading ? "İndiriliyor..." : "CSV İndir"}
+              {isDownloading ? "İndiriliyor..." : "Excel İndir"}
             </button>
           </div>
         </div>
