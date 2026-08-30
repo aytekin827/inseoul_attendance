@@ -1,11 +1,58 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 
+// GET: 근태 기록 조회
+// - ?status=working : 실시간 근무자만 조회 (Canlı Çalışma Panosu 용)
+// - ?yearMonth=YYYY-MM : 특정 월의 전체 근태 기록 조회 (월별 근태 목록 및 급여 정산 용)
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const yearMonth = searchParams.get('yearMonth');
+
+    console.log(`[Attendance API] GET request received. Filter status=${status}, yearMonth=${yearMonth}`);
+
+    let query = supabase
+      .from('attendance_records')
+      .select('*, employees(name, hourly_rate)');
+
+    if (status === 'working') {
+      query = query.eq('status', 'working');
+    } else if (yearMonth) {
+      // YYYY-MM 형식의 시작일과 종료일 계산
+      const startDate = `${yearMonth}-01`;
+      // 해당 월의 마지막 날 계산 (안전하게 다음달 1일 미만으로 하거나 해당 월의 31일 등 범위 지정)
+      const [year, month] = yearMonth.split('-').map(Number);
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+      query = query
+        .gte('work_date', startDate)
+        .lt('work_date', endDate);
+    }
+
+    const { data: records, error } = await query.order('work_date', { ascending: false }).order('clock_in', { ascending: false });
+
+    if (error) {
+      console.error("[Attendance API] Supabase error fetching attendance records:", error);
+      return NextResponse.json({ error: 'Kayıtlar alınamadı' }, { status: 500 });
+    }
+
+    console.log(`[Attendance API] Successfully fetched ${records?.length || 0} records.`);
+    return NextResponse.json({ records });
+  } catch (err: any) {
+    console.error('[Attendance API] Unexpected error in GET:', err);
+    return NextResponse.json({ error: 'Sunucu hatası oluştu' }, { status: 500 });
+  }
+}
+
+// POST: 출퇴근 등록 (기존 직원용 모바일 등록 로직 유지)
 export async function POST(request: Request) {
   let requestData = null;
   try {
     requestData = await request.json();
-    console.log("[Attendance API] Request Received:", requestData);
+    console.log("[Attendance API] POST Request Received:", requestData);
 
     const { employeeId, pinCode, action } = requestData;
 
@@ -132,6 +179,44 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error("[Attendance API] Unexpected Crash error:", err);
-    return NextResponse.json({ error: 'Sunucu hatası oluştu' }, { status: 500 });
+    return NextResponse.json({ error: 'Sunucu hatası oluş투' }, { status: 500 });
+  }
+}
+
+// PUT: 근태 기록 정보 수동 수정 (사장님 전용)
+export async function PUT(request: Request) {
+  try {
+    const { id, clockIn, clockOut, breakMinutes, status, notes, workDate } = await request.json();
+    console.log("[Attendance API] PUT request received. Updating record ID:", id);
+
+    if (!id || !clockIn || breakMinutes === undefined || !status || !workDate) {
+      console.error("[Attendance API] Validation Failed: Missing fields for updating record");
+      return NextResponse.json({ error: 'Gerekli alanlar eksik' }, { status: 400 });
+    }
+
+    const { data: updatedRecord, error } = await supabase
+      .from('attendance_records')
+      .update({
+        work_date: workDate,
+        clock_in: clockIn,
+        clock_out: clockOut || null,
+        break_minutes: breakMinutes,
+        status: status,
+        notes: notes || null
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[Attendance API] Supabase error updating record:", error);
+      return NextResponse.json({ error: 'Kayıt güncellenemedi' }, { status: 500 });
+    }
+
+    console.log("[Attendance API] Attendance record updated successfully:", updatedRecord);
+    return NextResponse.json({ message: 'Kayıt başarıyla güncellendi', record: updatedRecord });
+  } catch (err: any) {
+    console.error('[Attendance API] Unexpected error in PUT /api/attendance:', err);
+    return NextResponse.json({ error: 'Sunucu hatası oluş투' }, { status: 500 });
   }
 }
