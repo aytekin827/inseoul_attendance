@@ -23,11 +23,11 @@ export default function AttendancePage() {
 
   const handleAction = async (action: 'clock_in' | 'clock_out') => {
     if (!selectedEmployeeId) {
-      setMessage({ text: "직원을 선택해주세요.", type: "error" });
+      setMessage({ text: "Lütfen bir personel seçin.", type: "error" });
       return;
     }
     if (pinCode.length !== 4) {
-      setMessage({ text: "PIN 번호 4자리를 입력해주세요.", type: "error" });
+      setMessage({ text: "Lütfen 4 haneli PIN kodunu girin.", type: "error" });
       return;
     }
 
@@ -43,13 +43,13 @@ export default function AttendancePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage({ text: data.error || "오류가 발생했습니다.", type: "error" });
+        setMessage({ text: data.error || "Bir hata oluştu.", type: "error" });
       } else {
-        setMessage({ text: data.message || "성공적으로 처리되었습니다.", type: "success" });
+        setMessage({ text: data.message || "İşlem başarıyla tamamlandı.", type: "success" });
         setPinCode(""); // 초기화
       }
     } catch (error) {
-      setMessage({ text: "서버 연결에 실패했습니다.", type: "error" });
+      setMessage({ text: "Sunucu bağlantısı başarısız oldu.", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -59,8 +59,8 @@ export default function AttendancePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="bg-blue-600 p-6 text-center text-white">
-          <h1 className="text-2xl font-bold">출퇴근 기록</h1>
-          <p className="opacity-80 mt-1">매장 QR 스캔 완료</p>
+          <h1 className="text-2xl font-bold">Giriş-Çıkış Kaydı</h1>
+          <p className="opacity-80 mt-1">Mağaza QR Tarandı</p>
         </div>
         
         <div className="p-6 space-y-6">
@@ -71,13 +71,13 @@ export default function AttendancePage() {
           )}
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">직원 선택</label>
+            <label className="block text-sm font-medium text-gray-700">Personel Seçimi</label>
             <select 
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg bg-white"
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
             >
-              <option value="">본인 이름을 선택하세요</option>
+              <option value="">Lütfen adınızı seçin</option>
               {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>{emp.name}</option>
               ))}
@@ -85,7 +85,7 @@ export default function AttendancePage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">PIN 번호</label>
+            <label className="block text-sm font-medium text-gray-700">PIN Kodu</label>
             <input 
               type="password" 
               maxLength={4}
@@ -103,7 +103,7 @@ export default function AttendancePage() {
               className="flex flex-col items-center justify-center py-4 bg-green-50 text-green-700 border border-green-200 rounded-xl hover:bg-green-100 transition-colors disabled:opacity-50"
             >
               <LogIn className="w-8 h-8 mb-2" />
-              <span className="font-bold text-lg">출근하기 🟢</span>
+              <span className="font-bold text-lg">Giriş Yap 🟢</span>
             </button>
             <button 
               disabled={loading}
@@ -111,7 +111,7 @@ export default function AttendancePage() {
               className="flex flex-col items-center justify-center py-4 bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50"
             >
               <LogOut className="w-8 h-8 mb-2" />
-              <span className="font-bold text-lg">퇴근하기 🔴</span>
+              <span className="font-bold text-lg">Çıkış Yap 🔴</span>
             </button>
           </div>
         </div>

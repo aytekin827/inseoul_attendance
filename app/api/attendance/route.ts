@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const { employeeId, pinCode, action } = await request.json();
 
     if (!employeeId || !pinCode || !action) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'Gerekli alanlar eksik' }, { status: 400 });
     }
 
     // 1. Verify Employee and PIN
@@ -17,14 +17,14 @@ export async function POST(request: Request) {
       .single();
 
     if (empError || !employee) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Personel bulunamadı' }, { status: 404 });
     }
 
     if (employee.pin_code !== pinCode) {
-      return NextResponse.json({ error: 'Invalid PIN code' }, { status: 401 });
+      return NextResponse.json({ error: 'Geçersiz PIN kodu' }, { status: 401 });
     }
 
-    // Get current local date in YYYY-MM-DD format (adjusting for local timezone might be needed in production, using UTC for simplicity here)
+    // Get current local date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
 
     if (action === 'clock_in') {
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       }
 
       if (existingRecord) {
-        return NextResponse.json({ error: 'Already clocked in and currently working.' }, { status: 400 });
+        return NextResponse.json({ error: 'Zaten giriş yapılmış ve çalışıyor.' }, { status: 400 });
       }
 
       // Insert new working record
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
       if (insertError) throw insertError;
 
-      return NextResponse.json({ message: 'Clocked in successfully', record: newRecord });
+      return NextResponse.json({ message: 'Giriş işlemi başarıyla tamamlandı', record: newRecord });
     } 
     
     else if (action === 'clock_out') {
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       if (checkError) throw checkError;
 
       if (!activeRecord) {
-        return NextResponse.json({ error: 'No active clock-in record found to clock out.' }, { status: 400 });
+        return NextResponse.json({ error: 'Çıkış yapmak için aktif bir giriş kaydı bulunamadı.' }, { status: 400 });
       }
 
       // Update record to completed
@@ -91,15 +91,15 @@ export async function POST(request: Request) {
 
       if (updateError) throw updateError;
 
-      return NextResponse.json({ message: 'Clocked out successfully', record: updatedRecord });
+      return NextResponse.json({ message: 'Çıkış işlemi başarıyla tamamlandı', record: updatedRecord });
     } 
     
     else {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+      return NextResponse.json({ error: 'Geçersiz işlem' }, { status: 400 });
     }
 
   } catch (err: any) {
     console.error('Attendance API Error:', err);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Sunucu hatası oluştu' }, { status: 500 });
   }
 }

@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Inseoul Attendance',
-  description: '식당 매장 QR 기반 출퇴근 기록 및 사장님 급여 관리 시스템',
+  description: 'Restoran QR tabanlı giriş-çıkış kaydı ve patron maaş yönetim sistemi',
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html lang="tr">
       <body>{children}</body>
     </html>
   );

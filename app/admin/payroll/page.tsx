@@ -3,26 +3,23 @@
 import { useState } from "react";
 import { Download, Calculator, Calendar } from "lucide-react";
 
-// 실제 구현 시 아래 유틸을 활용해 서버/클라이언트 단에서 데이터를 연산합니다.
-// import { calculateMonthlyPayroll, PayrollSummary } from "@/lib/payroll";
-
 // --- UI 시연을 위한 임시 목업 데이터 ---
 const MOCK_PAYROLL_DATA = [
   {
     employeeId: "emp-001",
-    employeeName: "홍길동",
+    employeeName: "Ahmet Yılmaz",
     totalWorkHours: 65.5,
-    basePay: 655000,
-    weeklyHolidayAllowance: 131000,
-    totalPay: 786000
+    basePay: 6550,
+    weeklyHolidayAllowance: 1310,
+    totalPay: 7860
   },
   {
     employeeId: "emp-002",
-    employeeName: "김철수",
+    employeeName: "Mehmet Demir",
     totalWorkHours: 32.0,
-    basePay: 320000,
-    weeklyHolidayAllowance: 0, // 주 15시간 미만으로 가정
-    totalPay: 320000
+    basePay: 3200,
+    weeklyHolidayAllowance: 0,
+    totalPay: 3200
   }
 ];
 
@@ -35,21 +32,20 @@ export default function PayrollPage() {
     setIsDownloading(true);
     
     // CSV 헤더
-    let csvContent = "직원명,근무일자,출근,퇴근,휴게시간(분),실근무시간,시급,정산금액\n";
+    let csvContent = "Personel Adı,Çalışma Tarihi,Giriş,Çıkış,Mola Süresi (dk),Fiili Çalışma Süresi,Saatlik Ücret,Hesaplanan Tutar\n";
     
-    // TODO: 실제 구현 시에는 월별 모든 직원의 상세 근태(AttendanceRecord) 리스트를 순회하며 행을 생성합니다.
-    // 여기서는 UI 기능 시연용 임시 텍스트를 삽입합니다.
-    csvContent += "홍길동,2026-08-01,09:00:00,18:00:00,60,8.0,10000,80000\n";
-    csvContent += "홍길동,2026-08-02,09:00:00,14:00:00,0,5.0,10000,50000\n";
+    // UI 기능 시연용 임시 텍스트
+    csvContent += "Ahmet Yılmaz,2026-08-01,09:00:00,18:00:00,60,8.0,100,800\n";
+    csvContent += "Ahmet Yılmaz,2026-08-02,09:00:00,14:00:00,0,5.0,100,500\n";
 
-    // BOM 추가 (한글 깨짐 방지)
+    // BOM 추가 (한글 깨짐 방지 / UTF-8 지원)
     const BOM = "\uFEFF";
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `급여정산_상세내역_${yearMonth}.csv`);
+    link.setAttribute("download", `Maas_Detayi_${yearMonth}.csv`);
     link.style.visibility = 'hidden';
     
     document.body.appendChild(link);
@@ -70,8 +66,8 @@ export default function PayrollPage() {
               <Calculator className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">급여 정산 및 관리</h2>
-              <p className="text-gray-500 text-sm mt-1">직원별 근무시간 및 주휴수당 자동 계산</p>
+              <h2 className="text-2xl font-bold text-gray-800">Maaş Hesaplama ve Yönetim</h2>
+              <p className="text-gray-500 text-sm mt-1">Personel bazlı çalışma saatleri ve hafta tatili ücretinin otomatik hesaplanması</p>
             </div>
           </div>
           
@@ -91,7 +87,7 @@ export default function PayrollPage() {
               className="flex items-center px-5 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-70 shadow-sm"
             >
               <Download className="w-5 h-5 mr-2" />
-              {isDownloading ? "다운로드 중..." : "CSV 다운로드"}
+              {isDownloading ? "İndiriliyor..." : "CSV İndir"}
             </button>
           </div>
         </div>
@@ -99,18 +95,18 @@ export default function PayrollPage() {
         {/* 직원별 급여 요약 테이블 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-            <h3 className="text-lg font-bold text-gray-800">직원별 정산 요약 ({yearMonth})</h3>
+            <h3 className="text-lg font-bold text-gray-800">Personel Bazlı Maaş Özeti ({yearMonth})</h3>
           </div>
           
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="p-5 text-sm font-semibold text-gray-600">직원명</th>
-                  <th className="p-5 text-sm font-semibold text-gray-600 text-right">실근무시간</th>
-                  <th className="p-5 text-sm font-semibold text-gray-600 text-right">기본급</th>
-                  <th className="p-5 text-sm font-semibold text-gray-600 text-right">주휴수당</th>
-                  <th className="p-5 text-sm font-bold text-gray-800 text-right">최종 지급액</th>
+                  <th className="p-5 text-sm font-semibold text-gray-600">Personel Adı</th>
+                  <th className="p-5 text-sm font-semibold text-gray-600 text-right">Fiili Çalışma Süresi</th>
+                  <th className="p-5 text-sm font-semibold text-gray-600 text-right">Temel Maaş</th>
+                  <th className="p-5 text-sm font-semibold text-gray-600 text-right">Hafta Tatili Ücreti</th>
+                  <th className="p-5 text-sm font-bold text-gray-800 text-right">Toplam Ödenecek</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -123,19 +119,19 @@ export default function PayrollPage() {
                       {payroll.employeeName}
                     </td>
                     <td className="p-5 text-right text-gray-600 font-medium">
-                      {payroll.totalWorkHours} 시간
+                      {payroll.totalWorkHours} saat
                     </td>
                     <td className="p-5 text-right text-gray-600">
-                      {payroll.basePay.toLocaleString()}원
+                      {payroll.basePay.toLocaleString()} TL
                     </td>
                     <td className="p-5 text-right text-gray-600">
                       {payroll.weeklyHolidayAllowance > 0 
-                        ? <span className="text-green-600 font-medium">+{payroll.weeklyHolidayAllowance.toLocaleString()}원</span>
-                        : <span className="text-gray-400">0원</span>
+                        ? <span className="text-green-600 font-medium">+{payroll.weeklyHolidayAllowance.toLocaleString()} TL</span>
+                        : <span className="text-gray-400">0 TL</span>
                       }
                     </td>
                     <td className="p-5 text-right font-bold text-lg text-blue-600">
-                      {payroll.totalPay.toLocaleString()}원
+                      {payroll.totalPay.toLocaleString()} TL
                     </td>
                   </tr>
                 ))}

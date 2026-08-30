@@ -11,7 +11,7 @@ export async function GET() {
 
     if (error) {
       console.error('Error fetching employees:', error);
-      return NextResponse.json({ error: 'Failed to fetch employees' }, { status: 500 });
+      return NextResponse.json({ error: 'Personel listesi alınamadı' }, { status: 500 });
     }
 
     // In a real production app, we might want to omit pin_code from this payload, 
@@ -19,6 +19,6 @@ export async function GET() {
     return NextResponse.json({ employees });
   } catch (err: any) {
     console.error('Unexpected error in GET /api/employees:', err);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Sunucu hatası oluştu' }, { status: 500 });
   }
 }
