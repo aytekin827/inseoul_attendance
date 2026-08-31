@@ -68,7 +68,22 @@ export default function AttendancePage() {
     time: string;
   } | null>(null);
 
+  const [currentTime, setCurrentTime] = useState("");
   const t = translations[lang];
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const trOffsetMs = 3 * 60 * 60 * 1000;
+      const trTime = new Date(now.getTime() + trOffsetMs);
+      const timeStr = `${String(trTime.getUTCHours()).padStart(2, '0')}:${String(trTime.getUTCMinutes()).padStart(2, '0')}:${String(trTime.getUTCSeconds()).padStart(2, '0')}`;
+      setCurrentTime(timeStr);
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const savedLang = localStorage.getItem("admin_lang");
@@ -305,6 +320,12 @@ export default function AttendancePage() {
             🌐 {lang === "tr" ? "TR" : "KR"}
           </button>
           <h1 className="text-2xl font-bold">{t.title}</h1>
+          {/* 실시간 시각 표시 (터키 현지 기준) */}
+          {currentTime && (
+            <div className="text-2xl font-mono font-bold mt-2 tracking-wider text-green-300 drop-shadow-sm">
+              {currentTime}
+            </div>
+          )}
           <div className="flex items-center justify-center gap-1.5 opacity-80 mt-1.5 text-xs">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>{t.subtitle}</span>
