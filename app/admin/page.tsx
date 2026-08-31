@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Users, Clock, CalendarDays, Edit2, UserPlus, ToggleLeft, ToggleRight, Check, X, RefreshCw, Key, Menu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, CalendarDays, Edit2, UserPlus, ToggleLeft, ToggleRight, Check, X, RefreshCw, Key, Menu } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@/types";
 
 type RecordWithEmployee = AttendanceRecord & {
@@ -17,7 +17,6 @@ const translations = {
     title: "Yönetici Paneli",
     restaurantName: "inseoul Kore Restoran",
     // tabs
-    realtimeTab: "Canlı Çalışma Panosu",
     recordsTab: "Aylık Çalışma Kayıtları",
     employeesTab: "Personel Yönetimi",
     changePw: "Şifre Değiştir",
@@ -38,16 +37,9 @@ const translations = {
     pwSuccess: "Şifre başarıyla güncellendi!",
     cancel: "İptal",
     save: "Kaydet",
-    // Realtime Tab
-    realtimeTitle: "Canlı Çalışma Panosu",
-    realtimeSubtitle: "Şu an aktif çalışan personel durumu",
+    // Monthly Records Tab
     refresh: "Yenile",
     loading: "Yükleniyor...",
-    noActiveEmployees: "Şu an aktif çalışan personel bulunmamaktadır.",
-    clockInTime: "Giriş:",
-    workingBadge: "Çalışıyor",
-    elapsedTime: "Geçen Süre",
-    // Monthly Records Tab
     monthlyTitle: "Aylık Çalışma Kayıtları",
     monthlySubtitle: "Geçmiş ve mevcut tüm çalışma logları",
     searchPlaceholder: "İsim ile ara...",
@@ -98,7 +90,6 @@ const translations = {
     title: "관리자 패널",
     restaurantName: "인서울 한식당",
     // tabs
-    realtimeTab: "실시간 근무 현황",
     recordsTab: "월별 근태 기록",
     employeesTab: "직원 관리",
     changePw: "비밀번호 변경",
@@ -119,16 +110,9 @@ const translations = {
     pwSuccess: "비밀번호가 성공적으로 변경되었습니다!",
     cancel: "취소",
     save: "저장",
-    // Realtime Tab
-    realtimeTitle: "실시간 근무 현황",
-    realtimeSubtitle: "현재 근무 중인 직원 상태",
+    // Monthly Records Tab
     refresh: "새로고침",
     loading: "로딩 중...",
-    noActiveEmployees: "현재 근무 중인 직원이 없습니다.",
-    clockInTime: "출근 시간:",
-    workingBadge: "근무 중",
-    elapsedTime: "경과 시간",
-    // Monthly Records Tab
     monthlyTitle: "월별 근태 기록",
     monthlySubtitle: "과거 및 현재의 모든 근태 기록",
     searchPlaceholder: "이름으로 검색...",
@@ -179,7 +163,7 @@ const translations = {
 
 export default function AdminDashboard() {
   const [lang, setLang] = useState<"tr" | "ko">("tr");
-  const [activeTab, setActiveTab] = useState("realtime");
+  const [activeTab, setActiveTab] = useState("records");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
@@ -353,13 +337,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           <nav className="space-y-1 p-4">
-            <button 
-              onClick={() => { setActiveTab("realtime"); setIsSidebarOpen(false); }}
-              className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'realtime' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <Clock className="w-5 h-5 mr-3" />
-              {t.realtimeTab}
-            </button>
+
             <button 
               onClick={() => { setActiveTab("records"); setIsSidebarOpen(false); }}
               className={`w-full flex items-center p-3 rounded-lg transition-colors ${activeTab === 'records' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -398,7 +376,7 @@ export default function AdminDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        {activeTab === "realtime" && <RealtimeBoard t={t} />}
+
         {activeTab === "records" && <MonthlyRecords t={t} />}
         {activeTab === "employees" && <EmployeeManagement t={t} />}
       </main>
@@ -458,97 +436,7 @@ export default function AdminDashboard() {
   );
 }
 
-// -------------------------------------------------------------
-// 1. Canlı Çalışma Panosu (실시간 근무 보드)
-// -------------------------------------------------------------
-function RealtimeBoard({ t }: { t: any }) {
-  const [records, setRecords] = useState<RecordWithEmployee[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchRealtime = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/attendance?status=working");
-      const data = await res.json();
-      if (data.records) setRecords(data.records);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchRealtime();
-    const interval = setInterval(fetchRealtime, 30000);
-    return () => clearInterval(interval);
-  }, [fetchRealtime]);
-
-  const Timer = ({ clockIn }: { clockIn: string }) => {
-    const [elapsed, setElapsed] = useState("");
-
-    useEffect(() => {
-      const calc = () => {
-        const diffMs = Date.now() - new Date(clockIn).getTime();
-        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        setElapsed(`${diffHrs}sa ${diffMins}dk`);
-      };
-      calc();
-      const timer = setInterval(calc, 60000);
-      return () => clearInterval(timer);
-    }, [clockIn]);
-
-    return <span>{elapsed}</span>;
-  };
-
-  return (
-    <div className="animate-in fade-in duration-300">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h3 className="text-xl md:text-2xl font-bold text-gray-800">{t.realtimeTitle}</h3>
-          <p className="text-gray-500 text-xs md:text-sm">{t.realtimeSubtitle}</p>
-        </div>
-        <button onClick={fetchRealtime} className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-all flex items-center gap-2 text-xs md:text-sm shadow-sm">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {t.refresh}
-        </button>
-      </div>
-
-      {loading && records.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">{t.loading}</div>
-      ) : records.length === 0 ? (
-        <div className="bg-white border border-dashed border-gray-200 rounded-2xl p-12 text-center text-gray-500">
-          {t.noActiveEmployees}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {records.map((rec) => (
-            <div key={rec.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h4 className="text-lg font-bold text-gray-800">{rec.employees?.name}</h4>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {t.clockInTime} {new Date(rec.clock_in).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">
-                  {t.workingBadge}
-                </span>
-              </div>
-              <div className="pt-4 border-t border-gray-50">
-                <p className="text-xs text-gray-400 mb-1">{t.elapsedTime}</p>
-                <div className="text-3xl font-bold text-blue-600">
-                  <Timer clockIn={rec.clock_in} />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // -------------------------------------------------------------
 // 2. Aylık Çalışma Kayıtları (월별 근태 목록)
