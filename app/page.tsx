@@ -356,6 +356,8 @@ export default function AttendancePage() {
             <label className="block text-sm font-semibold text-gray-700">{t.pinLabel}</label>
             <input
               type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={4}
               placeholder={t.pinPlaceholder}
               className="w-full p-4 text-center text-3xl tracking-widest border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800"

@@ -989,7 +989,7 @@ function EmployeeManagement({ t }: { t: any }) {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">{t.pinLabel}</label>
-                <input type="password" required maxLength={4} placeholder="****" value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center text-sm outline-none" />
+                <input type="password" required inputMode="numeric" pattern="[0-9]*" maxLength={4} placeholder="****" value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center text-sm outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1025,7 +1025,7 @@ function EmployeeManagement({ t }: { t: any }) {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">{t.pinLabel}</label>
-                <input type="password" required maxLength={4} value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center text-sm outline-none" />
+                <input type="password" required inputMode="numeric" pattern="[0-9]*" maxLength={4} value={pinCode} onChange={(e) => setPinCode(e.target.value.replace(/\D/g, ''))} className="w-full p-2.5 border border-gray-200 rounded-lg text-gray-700 tracking-widest text-center text-sm outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
