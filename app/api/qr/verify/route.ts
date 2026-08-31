@@ -8,12 +8,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Token eksik / 토큰 누락' }, { status: 400 });
     }
 
-    // minor clock drift나 네트워크 전송 지연을 감안하여 이전/현재/다음 토큰(±30초 범위)까지 모두 인정
+    // 기기 간 시간 차이 및 네트워크 딜레이를 고려하여 ±60초 범위(총 5개 토큰) 내의 토큰을 모두 유효한 것으로 인정
     const currentToken = generateQRToken(0);
-    const prevToken = generateQRToken(-30000);
-    const nextToken = generateQRToken(30000);
+    const prev1Token = generateQRToken(-30000);
+    const prev2Token = generateQRToken(-60000);
+    const next1Token = generateQRToken(30000);
+    const next2Token = generateQRToken(60000);
 
-    if (token === currentToken || token === prevToken || token === nextToken) {
+    if (
+      token === currentToken || 
+      token === prev1Token || 
+      token === prev2Token || 
+      token === next1Token || 
+      token === next2Token
+    ) {
       return NextResponse.json({ success: true });
     }
 

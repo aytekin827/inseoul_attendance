@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function QRDisplayPage() {
   const [token, setToken] = useState("");
   const [remaining, setRemaining] = useState(30);
   const [baseUrl, setBaseUrl] = useState("");
+
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchToken = async () => {
     try {
@@ -13,32 +16,51 @@ export default function QRDisplayPage() {
       const data = await res.json();
       if (data.token) {
         setToken(data.token);
+        return data.remainingSeconds ?? 30;
       }
     } catch (e) {
       console.error("Token fetch error:", e);
     }
+    return 30;
   };
 
-  useEffect(() => {
-    setBaseUrl(window.location.origin);
-    fetchToken();
-
-    // 30초 간격으로 서버에 새로운 토큰 요청 및 로컬 카운트다운 리셋
-    const fetchInterval = setInterval(() => {
-      fetchToken();
-      setRemaining(30);
-    }, 30000);
-
-    return () => clearInterval(fetchInterval);
-  }, []);
-
-  // 1초 단위 로컬 카운트다운 타이머 (서버 시간 오차 문제 해결)
+  // 1초 단위 로컬 카운트다운 타이머
   useEffect(() => {
     const countdownTimer = setInterval(() => {
-      setRemaining(prev => Math.max(0, prev - 1));
+      setRemaining(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
 
     return () => clearInterval(countdownTimer);
+  }, []);
+
+  // 토큰 갱신 주기를 서버의 30초 절대 경계 시간(NTP 동기화)에 일치시킵니다.
+  useEffect(() => {
+    setBaseUrl(window.location.origin);
+
+    const setupSync = async () => {
+      // 1단계: 즉시 첫 번째 토큰을 받아와 남은 시간(예: 14초)을 구함
+      const remainingSeconds = await fetchToken();
+      setRemaining(remainingSeconds);
+
+      // 2단계: 남은 시간(초)이 다 흐르면(서버의 30초 경계면) 동기화 구동
+      timeoutRef.current = setTimeout(async () => {
+        const nextRemaining = await fetchToken();
+        setRemaining(nextRemaining);
+
+        // 3단계: 이후 정확히 30초 간격으로 서버에서 신규 토큰 요청
+        intervalRef.current = setInterval(async () => {
+          const tickRemaining = await fetchToken();
+          setRemaining(tickRemaining);
+        }, 30000);
+      }, remainingSeconds * 1000);
+    };
+
+    setupSync();
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, []);
 
   const landingUrl = token && baseUrl ? `${baseUrl}?token=${token}` : "";
