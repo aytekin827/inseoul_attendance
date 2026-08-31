@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
+import { sendTelegramAlert } from '@/lib/telegram';
 
 // GET: 근태 기록 조회
 // - ?status=working : 실시간 근무자만 조회 (Canlı Çalışma Panosu 용)
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     console.log(`[Attendance API] Verifying employee ID: ${employeeId}`);
     const { data: employee, error: empError } = await supabase
       .from('employees')
-      .select('id, pin_code')
+      .select('id, pin_code, name')
       .eq('id', employeeId)
       .single();
 
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
     const trOffsetMs = 3 * 60 * 60 * 1000;
     const trTime = new Date(now.getTime() + trOffsetMs);
     const today = trTime.toISOString().split('T')[0];
+    const actualTimeStr = `${String(trTime.getUTCHours()).padStart(2, '0')}:${String(trTime.getUTCMinutes()).padStart(2, '0')}:${String(trTime.getUTCSeconds()).padStart(2, '0')}`;
 
     if (action === 'clock_in') {
       console.log(`[Attendance API] Checking existing clock-in for Employee ID: ${employeeId} on Date: ${today}`);
@@ -114,10 +116,15 @@ export async function POST(request: Request) {
       // [보정 규칙] 오전조 출근 9:00: 9시 전에 와서 찍더라도 9시로 기록되도록 처리 (새벽 5시 ~ 아침 9시 사이 대상)
       const hours = trTime.getUTCHours();
       let clockInTime = now;
+      let notesText = null;
+      let isAdjusted = false;
+
       if (hours >= 5 && hours < 9) {
         const adjustedTrTime = new Date(trTime);
         adjustedTrTime.setUTCHours(9, 0, 0, 0); // 터키 시간으로 09:00:00 설정
         clockInTime = new Date(adjustedTrTime.getTime() - trOffsetMs); // UTC 시간으로 복원
+        notesText = `[Giriş 보정] 실제 입력 시각: ${actualTimeStr}`;
+        isAdjusted = true;
       }
       const clockInIso = clockInTime.toISOString();
 
@@ -129,7 +136,8 @@ export async function POST(request: Request) {
           employee_id: employeeId,
           work_date: today,
           clock_in: clockInIso,
-          status: 'working'
+          status: 'working',
+          notes: notesText
         }])
         .select()
         .single();
@@ -138,6 +146,10 @@ export async function POST(request: Request) {
         console.error("[Attendance API] Supabase error inserting clock-in record:", insertError);
         throw insertError;
       }
+
+      // 텔레그램 알림 발송
+      const alertMsg = `🔔 <b>[근태 알림 / Giriş Bildirimi]</b>\n🟢 <b>출근 등록 (Giriş Yapıldı)</b>\n\n• <b>직원명 (Personel):</b> ${employee.name}\n• <b>날짜 (Tarih):</b> ${today}\n• <b>실제 등록 시간 (Gerçek Giriş):</b> ${actualTimeStr}${isAdjusted ? `\n• <b>보정 시간 (Düzeltilen Saat):</b> 09:00:00 (오전조 기준 적용)` : ''}`;
+      await sendTelegramAlert(alertMsg);
 
       console.log("[Attendance API] Clocked in successfully:", newRecord);
       return NextResponse.json({ message: 'Giriş işlemi başarıyla tamamlandı', record: newRecord });
@@ -148,7 +160,7 @@ export async function POST(request: Request) {
       // Find the currently working record
       const { data: activeRecord, error: checkError } = await supabase
         .from('attendance_records')
-        .select('id, clock_in')
+        .select('id, clock_in, notes')
         .eq('employee_id', employeeId)
         .eq('status', 'working')
         .order('clock_in', { ascending: false })
@@ -171,6 +183,9 @@ export async function POST(request: Request) {
       const inHours = trInDate.getUTCHours();
 
       let clockOutTime = now;
+      let notesText = activeRecord.notes || null;
+      let isAdjusted = false;
+
       if (inHours >= 13) {
         const outHours = trTime.getUTCHours();
         // 저녁 6시 ~ 밤 10시 사이 일찍 퇴근한 경우 22:00으로 보정
@@ -178,6 +193,9 @@ export async function POST(request: Request) {
           const adjustedTrTime = new Date(trTime);
           adjustedTrTime.setUTCHours(22, 0, 0, 0); // 터키 시간으로 22:00:00 설정
           clockOutTime = new Date(adjustedTrTime.getTime() - trOffsetMs); // UTC 시간으로 복원
+          const adjustmentNote = `[Çıkış 보정] 실제 입력 시각: ${actualTimeStr}`;
+          notesText = activeRecord.notes ? `${activeRecord.notes} | ${adjustmentNote}` : adjustmentNote;
+          isAdjusted = true;
         }
       }
       const clockOutIso = clockOutTime.toISOString();
@@ -188,7 +206,8 @@ export async function POST(request: Request) {
         .from('attendance_records')
         .update({
           clock_out: clockOutIso,
-          status: 'completed'
+          status: 'completed',
+          notes: notesText
         })
         .eq('id', activeRecord.id)
         .select()
@@ -198,6 +217,10 @@ export async function POST(request: Request) {
         console.error("[Attendance API] Supabase error updating clock-out record:", updateError);
         throw updateError;
       }
+
+      // 텔레그램 알림 발송
+      const alertMsg = `🔔 <b>[근태 알림 / Çıkış Bildirimi]</b>\n🔴 <b>퇴근 등록 (Çıkış Yapıldı)</b>\n\n• <b>직원명 (Personel):</b> ${employee.name}\n• <b>날짜 (Tarih):</b> ${today}\n• <b>실제 등록 시간 (Gerçek Çıkış):</b> ${actualTimeStr}${isAdjusted ? `\n• <b>보정 시간 (Düzeltilen Saat):</b> 22:00:00 (오후조 기준 적용)` : ''}`;
+      await sendTelegramAlert(alertMsg);
 
       console.log("[Attendance API] Clocked out successfully:", updatedRecord);
       return NextResponse.json({ message: 'Çıkış işlemi başarıyla tamamlandı', record: updatedRecord });

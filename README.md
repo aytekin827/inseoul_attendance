@@ -115,7 +115,10 @@ inseoul_attendance/
 
 ### 2. Vercel 배포
 1. 본인의 GitHub 리포지토리를 [Vercel](https://vercel.com/)에 **Import Project** 합니다.
-2. 배포 설정 페이지 하단의 **Environment Variables**에 위에서 복사한 값을 추가합니다:
-   - Name: `NEXT_PUBLIC_SUPABASE_URL` / Value: (복사한 Project URL)
-   - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY` / Value: (복사한 anon key)
+2. 배포 설정 페이지 하단의 **Environment Variables**에 아래 변수들을 추가합니다:
+   - `NEXT_PUBLIC_SUPABASE_URL` : Supabase Project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` : Supabase anon public key
+   - `QR_SECRET_KEY` : 실시간 QR 코드 해싱용 무작위 비밀값 (예: `inseoul_secret_2026`)
+   - `TELEGRAM_BOT_TOKEN` : 출퇴근 알림 발송용 텔레그램 봇 토큰 (BotFather에게 발급받은 값)
+   - `TELEGRAM_CHAT_ID` : 알림을 수신할 사장님 개인 또는 그룹 채팅방의 ID (예: `-100123456789`)
 3. **[Deploy]** 버튼을 누릅니다. Vercel이 자동으로 프로젝트를 빌드하고 도메인을 할당하여 배포를 완료합니다!

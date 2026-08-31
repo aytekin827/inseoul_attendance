@@ -60,6 +60,14 @@ export default function AttendancePage() {
   const [isQrVerified, setIsQrVerified] = useState(false);
   const [qrErrorType, setQrErrorType] = useState<"none" | "invalid" | "conn">("none");
 
+  // 성공 안내 화면 상태
+  const [showSuccessScreen, setShowSuccessScreen] = useState(false);
+  const [successDetails, setSuccessDetails] = useState<{
+    name: string;
+    action: 'clock_in' | 'clock_out';
+    time: string;
+  } | null>(null);
+
   const t = translations[lang];
 
   useEffect(() => {
@@ -110,10 +118,29 @@ export default function AttendancePage() {
     }
   }, []);
 
+  // 성공 안내 화면 자동 닫기 및 QR 검증 상태 파기 타이머 (5초)
+  useEffect(() => {
+    if (!showSuccessScreen) return;
+
+    const timer = setTimeout(() => {
+      setIsQrVerified(false);
+      setShowSuccessScreen(false);
+      setSuccessDetails(null);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [showSuccessScreen]);
+
   const handleLangToggle = () => {
     const nextLang = lang === "tr" ? "ko" : "tr";
     setLang(nextLang);
     localStorage.setItem("admin_lang", nextLang);
+  };
+
+  const handleSuccessClose = () => {
+    setIsQrVerified(false);
+    setShowSuccessScreen(false);
+    setSuccessDetails(null);
   };
 
   const handleAction = async (action: 'clock_in' | 'clock_out') => {
@@ -140,10 +167,24 @@ export default function AttendancePage() {
       if (!res.ok) {
         setMessage({ text: data.error || "Bir hata oluştu.", type: "error" });
       } else {
-        setMessage({ text: data.message || t.successMsg, type: "success" });
+        const emp = employees.find(e => e.id === selectedEmployeeId);
+        const empName = emp ? emp.name : "";
+
+        // 성공 화면용 현재 터키 시각 포맷팅 (HH:MM:SS)
+        const now = new Date();
+        const trOffsetMs = 3 * 60 * 60 * 1000;
+        const trTime = new Date(now.getTime() + trOffsetMs);
+        const timeStr = `${String(trTime.getUTCHours()).padStart(2, '0')}:${String(trTime.getUTCMinutes()).padStart(2, '0')}:${String(trTime.getUTCSeconds()).padStart(2, '0')}`;
+
+        setSuccessDetails({
+          name: empName,
+          action: action,
+          time: timeStr
+        });
+        setShowSuccessScreen(true);
         setPinCode("");
-        // [보안 핵심] 출퇴근 등록에 성공하면 QR 승인 완료 상태를 즉시 파기하여 재사용 불가능하게 처리!
-        setIsQrVerified(false);
+        setSelectedEmployeeId("");
+        setMessage({ text: "", type: "" });
       }
     } catch (error) {
       setMessage({ text: t.connError, type: "error" });
@@ -165,7 +206,7 @@ export default function AttendancePage() {
   }
 
   // 2. QR 검증 실패 또는 미스캔 차단 화면
-  if (!isQrVerified) {
+  if (!isQrVerified && !showSuccessScreen) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-red-100">
@@ -197,7 +238,60 @@ export default function AttendancePage() {
     );
   }
 
-  // 3. 정상 접속 및 출퇴근 등록 화면
+  // 3. 출퇴근 성공 안내 화면
+  if (showSuccessScreen && successDetails) {
+    const isClockIn = successDetails.action === 'clock_in';
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-green-100 p-8 text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center border border-green-200">
+              <ShieldCheck className="w-12 h-12 text-green-600" />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {lang === 'tr' ? 'İşlem Başarılı' : '처리가 완료되었습니다'}
+            </h2>
+            <p className="text-gray-500 font-medium">
+              {isClockIn 
+                ? (lang === 'tr' ? 'Giriş kaydınız oluşturuldu.' : '출근 등록이 완료되었습니다.') 
+                : (lang === 'tr' ? 'Çıkış kaydınız oluşturuldu.' : '퇴근 등록이 완료되었습니다.')}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-3 text-left">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">{lang === 'tr' ? 'Personel' : '직원명'}</span>
+              <span className="text-gray-800 font-bold">{successDetails.name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">{lang === 'tr' ? 'İşlem' : '구분'}</span>
+              <span className={`font-bold ${isClockIn ? 'text-green-600' : 'text-red-600'}`}>
+                {isClockIn 
+                  ? (lang === 'tr' ? 'Giriş 🟢' : '출근 🟢') 
+                  : (lang === 'tr' ? 'Çıkış 🔴' : '퇴근 🔴')}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">{lang === 'tr' ? 'Saat' : '기록 시각'}</span>
+              <span className="text-gray-800 font-bold">{successDetails.time}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleSuccessClose}
+            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl transition-colors shadow-lg shadow-green-100"
+          >
+            {lang === 'tr' ? 'Tamam (Kapat)' : '확인 (닫기)'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. 정상 접속 및 출퇴근 등록 화면
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-blue-50">
