@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateQRToken } from '../generate/route';
+import { generateQRToken } from '@/lib/qr';
 
 export async function POST(request: Request) {
   try {
