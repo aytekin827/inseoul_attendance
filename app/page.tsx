@@ -7,7 +7,7 @@ import type { Employee } from "@/types";
 const translations = {
   tr: {
     title: "Giriş-Çıkış Kaydı",
-    subtitle: "Mağaza QR Tarandı",
+    subtitle: "InSeoul",
     langBtn: "Türkçe",
     selectLabel: "Personel Seçimi",
     selectPlaceholder: "personeli seçin",
@@ -27,7 +27,7 @@ const translations = {
   },
   ko: {
     title: "출퇴근 기록기",
-    subtitle: "매장 실시간 QR 인증 완료",
+    subtitle: "InSeoul",
     langBtn: "한국어",
     selectLabel: "직원 선택",
     selectPlaceholder: "본인의 이름을 선택해주세요",
@@ -327,7 +327,6 @@ export default function AttendancePage() {
             </div>
           )}
           <div className="flex items-center justify-center gap-1.5 opacity-80 mt-1.5 text-xs">
-            <ShieldCheck className="w-3.5 h-3.5" />
             <span>{t.subtitle}</span>
           </div>
         </div>
