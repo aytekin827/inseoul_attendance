@@ -84,8 +84,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Geçersiz PIN kodu' }, { status: 401 });
     }
 
-    // Get current local date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
+    // 터키 시간대(UTC+3) 기준으로 오늘 날짜(YYYY-MM-DD) 구하기
+    const now = new Date();
+    const trOffsetMs = 3 * 60 * 60 * 1000;
+    const trTime = new Date(now.getTime() + trOffsetMs);
+    const today = trTime.toISOString().split('T')[0];
 
     if (action === 'clock_in') {
       console.log(`[Attendance API] Checking existing clock-in for Employee ID: ${employeeId} on Date: ${today}`);
@@ -108,13 +111,24 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Zaten giriş yapılmış ve çalışıyor.' }, { status: 400 });
       }
 
-      console.log(`[Attendance API] Inserting new clock-in record for Employee ID: ${employeeId}`);
+      // [보정 규칙] 오전조 출근 9:00: 9시 전에 와서 찍더라도 9시로 기록되도록 처리 (새벽 5시 ~ 아침 9시 사이 대상)
+      const hours = trTime.getUTCHours();
+      let clockInTime = now;
+      if (hours >= 5 && hours < 9) {
+        const adjustedTrTime = new Date(trTime);
+        adjustedTrTime.setUTCHours(9, 0, 0, 0); // 터키 시간으로 09:00:00 설정
+        clockInTime = new Date(adjustedTrTime.getTime() - trOffsetMs); // UTC 시간으로 복원
+      }
+      const clockInIso = clockInTime.toISOString();
+
+      console.log(`[Attendance API] Inserting new clock-in record for Employee ID: ${employeeId} at: ${clockInIso}`);
       // Insert new working record
       const { data: newRecord, error: insertError } = await supabase
         .from('attendance_records')
         .insert([{
           employee_id: employeeId,
           work_date: today,
+          clock_in: clockInIso,
           status: 'working'
         }])
         .select()
@@ -151,12 +165,29 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Çıkış yapmak için aktif bir giriş kaydı bulunamadı.' }, { status: 400 });
       }
 
-      console.log(`[Attendance API] Updating clock-out for Attendance Record ID: ${activeRecord.id}`);
+      // [보정 규칙] 오후조 퇴근 22:00: 22시 전에 일찍 찍더라도 22시로 기록되도록 처리 (오후조 출근은 15:30으로 기입된 직원 즉, 13시 이후 출근 대상)
+      const clockInDate = new Date(activeRecord.clock_in);
+      const trInDate = new Date(clockInDate.getTime() + trOffsetMs);
+      const inHours = trInDate.getUTCHours();
+
+      let clockOutTime = now;
+      if (inHours >= 13) {
+        const outHours = trTime.getUTCHours();
+        // 저녁 6시 ~ 밤 10시 사이 일찍 퇴근한 경우 22:00으로 보정
+        if (outHours >= 18 && outHours < 22) {
+          const adjustedTrTime = new Date(trTime);
+          adjustedTrTime.setUTCHours(22, 0, 0, 0); // 터키 시간으로 22:00:00 설정
+          clockOutTime = new Date(adjustedTrTime.getTime() - trOffsetMs); // UTC 시간으로 복원
+        }
+      }
+      const clockOutIso = clockOutTime.toISOString();
+
+      console.log(`[Attendance API] Updating clock-out for Attendance Record ID: ${activeRecord.id} at: ${clockOutIso}`);
       // Update record to completed
       const { data: updatedRecord, error: updateError } = await supabase
         .from('attendance_records')
         .update({
-          clock_out: new Date().toISOString(),
+          clock_out: clockOutIso,
           status: 'completed'
         })
         .eq('id', activeRecord.id)
@@ -179,7 +210,7 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error("[Attendance API] Unexpected Crash error:", err);
-    return NextResponse.json({ error: 'Sunucu hatası oluş투' }, { status: 500 });
+    return NextResponse.json({ error: 'Sunucu hatası oluştu' }, { status: 500 });
   }
 }
 
