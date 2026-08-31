@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LogIn, LogOut, ShieldAlert, ShieldCheck } from "lucide-react";
+import { LogIn, LogOut, ShieldAlert, ShieldCheck, RefreshCw } from "lucide-react";
 import type { Employee } from "@/types";
 
 const translations = {
