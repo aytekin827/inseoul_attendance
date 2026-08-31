@@ -10,7 +10,7 @@ const translations = {
     subtitle: "Mağaza QR Tarandı",
     langBtn: "Türkçe",
     selectLabel: "Personel Seçimi",
-    selectPlaceholder: "Lütfen adınızı seçin",
+    selectPlaceholder: "personeli seçin",
     pinLabel: "PIN Kodu",
     pinPlaceholder: "****",
     clockInBtn: "Giriş Yap 🟢",
@@ -112,22 +112,22 @@ export default function AttendancePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token })
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setIsQrVerified(true);
-          // 토큰이 복사되어 공유되지 않도록 주소창에서 토큰 쿼리 매개변수 제거
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } else {
-          setQrErrorType("invalid");
-        }
-      })
-      .catch(() => {
-        setQrErrorType("conn");
-      })
-      .finally(() => {
-        setCheckingQr(false);
-      });
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setIsQrVerified(true);
+            // 토큰이 복사되어 공유되지 않도록 주소창에서 토큰 쿼리 매개변수 제거
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            setQrErrorType("invalid");
+          }
+        })
+        .catch(() => {
+          setQrErrorType("conn");
+        })
+        .finally(() => {
+          setCheckingQr(false);
+        });
     } else {
       setCheckingQr(false);
     }
@@ -233,14 +233,14 @@ export default function AttendancePage() {
           </div>
           <div className="p-6 space-y-6 text-center">
             <p className="text-gray-600 leading-relaxed">
-              {qrErrorType === "invalid" 
-                ? t.qrInvalidDesc 
-                : qrErrorType === "conn" 
-                  ? t.connError 
+              {qrErrorType === "invalid"
+                ? t.qrInvalidDesc
+                : qrErrorType === "conn"
+                  ? t.connError
                   : t.qrRequiredDesc}
             </p>
             <div className="flex justify-center pt-2">
-              <button 
+              <button
                 onClick={handleLangToggle}
                 className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2 rounded-xl border border-gray-200"
               >
@@ -264,14 +264,14 @@ export default function AttendancePage() {
               <ShieldCheck className="w-12 h-12 text-green-600" />
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-gray-800">
               {lang === 'tr' ? 'İşlem Başarılı' : '처리가 완료되었습니다'}
             </h2>
             <p className="text-gray-500 font-medium">
-              {isClockIn 
-                ? (lang === 'tr' ? 'Giriş kaydınız oluşturuldu.' : '출근 등록이 완료되었습니다.') 
+              {isClockIn
+                ? (lang === 'tr' ? 'Giriş kaydınız oluşturuldu.' : '출근 등록이 완료되었습니다.')
                 : (lang === 'tr' ? 'Çıkış kaydınız oluşturuldu.' : '퇴근 등록이 완료되었습니다.')}
             </p>
           </div>
@@ -284,8 +284,8 @@ export default function AttendancePage() {
             <div className="flex justify-between text-sm">
               <span className="text-gray-500 font-medium">{lang === 'tr' ? 'İşlem' : '구분'}</span>
               <span className={`font-bold ${isClockIn ? 'text-green-600' : 'text-red-600'}`}>
-                {isClockIn 
-                  ? (lang === 'tr' ? 'Giriş 🟢' : '출근 🟢') 
+                {isClockIn
+                  ? (lang === 'tr' ? 'Giriş 🟢' : '출근 🟢')
                   : (lang === 'tr' ? 'Çıkış 🔴' : '퇴근 🔴')}
               </span>
             </div>
@@ -310,10 +310,10 @@ export default function AttendancePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-blue-50">
-        
+
         {/* 헤더 및 언어 전환 */}
         <div className="bg-blue-600 p-6 text-center text-white relative">
-          <button 
+          <button
             onClick={handleLangToggle}
             className="absolute top-4 right-4 text-[10px] bg-blue-700 hover:bg-blue-800 text-white font-bold px-2 py-1 rounded border border-blue-500 shadow-sm"
           >
@@ -331,7 +331,7 @@ export default function AttendancePage() {
             <span>{t.subtitle}</span>
           </div>
         </div>
-        
+
         <div className="p-6 space-y-6">
           {message.text && (
             <div className={`p-4 rounded-xl text-sm font-medium border ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
@@ -341,7 +341,7 @@ export default function AttendancePage() {
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">{t.selectLabel}</label>
-            <select 
+            <select
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg bg-white text-gray-800"
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
@@ -355,8 +355,8 @@ export default function AttendancePage() {
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">{t.pinLabel}</label>
-            <input 
-              type="password" 
+            <input
+              type="password"
               maxLength={4}
               placeholder={t.pinPlaceholder}
               className="w-full p-4 text-center text-3xl tracking-widest border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800"
@@ -366,7 +366,7 @@ export default function AttendancePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4">
-            <button 
+            <button
               disabled={loading}
               onClick={() => handleAction('clock_in')}
               className="flex flex-col items-center justify-center py-4 bg-green-50 text-green-700 border border-green-200 rounded-xl hover:bg-green-100 transition-colors disabled:opacity-50"
@@ -374,7 +374,7 @@ export default function AttendancePage() {
               <LogIn className="w-8 h-8 mb-2" />
               <span className="font-bold text-lg">{t.clockInBtn}</span>
             </button>
-            <button 
+            <button
               disabled={loading}
               onClick={() => handleAction('clock_out')}
               className="flex flex-col items-center justify-center py-4 bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50"
