@@ -58,7 +58,7 @@ export default function AttendancePage() {
   // QR 검증 상태
   const [checkingQr, setCheckingQr] = useState(true);
   const [isQrVerified, setIsQrVerified] = useState(false);
-  const [qrError, setQrError] = useState("");
+  const [qrErrorType, setQrErrorType] = useState<"none" | "invalid" | "conn">("none");
 
   const t = translations[lang];
 
@@ -78,7 +78,7 @@ export default function AttendancePage() {
       })
       .catch((err) => console.error(err));
 
-    // 2. URL 토큰 검증
+    // 2. URL 토큰 검증 (컴포넌트 마운트 시 1회만 수행)
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get("token");
 
@@ -96,11 +96,11 @@ export default function AttendancePage() {
           // 토큰이 복사되어 공유되지 않도록 주소창에서 토큰 쿼리 매개변수 제거
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
-          setQrError(t.qrInvalidDesc);
+          setQrErrorType("invalid");
         }
       })
       .catch(() => {
-        setQrError(t.connError);
+        setQrErrorType("conn");
       })
       .finally(() => {
         setCheckingQr(false);
@@ -108,7 +108,7 @@ export default function AttendancePage() {
     } else {
       setCheckingQr(false);
     }
-  }, [lang]);
+  }, []);
 
   const handleLangToggle = () => {
     const nextLang = lang === "tr" ? "ko" : "tr";
@@ -172,12 +172,16 @@ export default function AttendancePage() {
           <div className="bg-red-50 p-6 text-center border-b border-red-100 flex flex-col items-center">
             <ShieldAlert className="w-12 h-12 text-red-600 mb-2" />
             <h2 className="text-xl font-bold text-red-800">
-              {qrError ? t.qrInvalidTitle : t.qrRequiredTitle}
+              {qrErrorType === "invalid" ? t.qrInvalidTitle : t.qrRequiredTitle}
             </h2>
           </div>
           <div className="p-6 space-y-6 text-center">
             <p className="text-gray-600 leading-relaxed">
-              {qrError ? qrError : t.qrRequiredDesc}
+              {qrErrorType === "invalid" 
+                ? t.qrInvalidDesc 
+                : qrErrorType === "conn" 
+                  ? t.connError 
+                  : t.qrRequiredDesc}
             </p>
             <div className="flex justify-center pt-2">
               <button 

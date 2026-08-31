@@ -12,7 +12,7 @@ export default function QRDisplayPage() {
 
   const fetchToken = async () => {
     try {
-      const res = await fetch("/api/qr/generate");
+      const res = await fetch(`/api/qr/generate?t=${Date.now()}`);
       const data = await res.json();
       if (data.token) {
         setToken(data.token);
