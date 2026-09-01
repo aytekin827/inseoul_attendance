@@ -191,7 +191,6 @@ export async function POST(request: Request) {
           isAdjusted = true;
         }
       }
-      const clockOutIso = clockOutTime.toISOString();
 
       console.log(`[Attendance API] Updating clock-out for Attendance Record ID: ${activeRecord.id} at: ${clockOutIso}`);
       // Update record to completed
