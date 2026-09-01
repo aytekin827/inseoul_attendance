@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Download, Calculator, Calendar, ArrowLeft } from "lucide-react";
 import { calculateMonthlyPayroll, calculateWorkHours, PayrollSummary } from "@/lib/payroll";
 import type { Employee, AttendanceRecord } from "@/types";
+import { getTurkeyDateString } from "@/lib/time";
 import * as XLSX from "xlsx";
 
 type RecordWithEmployee = AttendanceRecord & {
@@ -86,8 +87,7 @@ const translations = {
 export default function PayrollPage() {
   const [lang, setLang] = useState<"tr" | "ko">("tr");
   const [yearMonth, setYearMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return getTurkeyDateString().slice(0, 7);
   });
   
   const [payrollSummaries, setPayrollSummaries] = useState<PayrollSummary[]>([]);

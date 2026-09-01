@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { LogIn, LogOut, ShieldAlert, ShieldCheck, RefreshCw } from "lucide-react";
 import type { Employee } from "@/types";
+import { getTurkeyTimeString } from "@/lib/time";
 
 const translations = {
   tr: {
@@ -73,11 +74,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date();
-      const trOffsetMs = 3 * 60 * 60 * 1000;
-      const trTime = new Date(now.getTime() + trOffsetMs);
-      const timeStr = `${String(trTime.getUTCHours()).padStart(2, '0')}:${String(trTime.getUTCMinutes()).padStart(2, '0')}:${String(trTime.getUTCSeconds()).padStart(2, '0')}`;
-      setCurrentTime(timeStr);
+      setCurrentTime(getTurkeyTimeString());
     };
 
     updateTime();
@@ -185,16 +182,10 @@ export default function AttendancePage() {
         const emp = employees.find(e => e.id === selectedEmployeeId);
         const empName = emp ? emp.name : "";
 
-        // 성공 화면용 현재 터키 시각 포맷팅 (HH:MM:SS)
-        const now = new Date();
-        const trOffsetMs = 3 * 60 * 60 * 1000;
-        const trTime = new Date(now.getTime() + trOffsetMs);
-        const timeStr = `${String(trTime.getUTCHours()).padStart(2, '0')}:${String(trTime.getUTCMinutes()).padStart(2, '0')}:${String(trTime.getUTCSeconds()).padStart(2, '0')}`;
-
         setSuccessDetails({
           name: empName,
           action: action,
-          time: timeStr
+          time: getTurkeyTimeString()
         });
         setShowSuccessScreen(true);
         setPinCode("");

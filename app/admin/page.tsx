@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Users, CalendarDays, Edit2, UserPlus, ToggleLeft, ToggleRight, Check, X, RefreshCw, Key, Menu } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@/types";
+import { formatTurkeyTime, formatTurkeyDateTimeLocal, parseTurkeyDateTimeLocal, getTurkeyDateString } from "@/lib/time";
 
 type RecordWithEmployee = AttendanceRecord & {
   employees: {
@@ -443,8 +444,7 @@ export default function AdminDashboard() {
 // -------------------------------------------------------------
 function MonthlyRecords({ t }: { t: any }) {
   const [yearMonth, setYearMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return getTurkeyDateString().slice(0, 7);
   });
   const [records, setRecords] = useState<RecordWithEmployee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -483,8 +483,8 @@ function MonthlyRecords({ t }: { t: any }) {
   const openEditModal = (rec: RecordWithEmployee) => {
     setEditingRecord(rec);
     setWorkDate(rec.work_date);
-    setClockIn(new Date(rec.clock_in).toISOString().slice(0, 16));
-    setClockOut(rec.clock_out ? new Date(rec.clock_out).toISOString().slice(0, 16) : "");
+    setClockIn(formatTurkeyDateTimeLocal(rec.clock_in));
+    setClockOut(formatTurkeyDateTimeLocal(rec.clock_out));
     setBreakMinutes(rec.break_minutes);
     setStatus(rec.status);
     setNotes(rec.notes || "");
@@ -501,8 +501,8 @@ function MonthlyRecords({ t }: { t: any }) {
         body: JSON.stringify({
           id: editingRecord.id,
           workDate,
-          clockIn: new Date(clockIn).toISOString(),
-          clockOut: clockOut ? new Date(clockOut).toISOString() : null,
+          clockIn: parseTurkeyDateTimeLocal(clockIn),
+          clockOut: clockOut ? parseTurkeyDateTimeLocal(clockOut) : null,
           breakMinutes,
           status,
           notes
@@ -626,12 +626,10 @@ function MonthlyRecords({ t }: { t: any }) {
                   <td className="p-4 text-gray-800 font-medium">{rec.work_date}</td>
                   <td className="p-4 text-gray-800">{rec.employees?.name}</td>
                   <td className="p-4 text-gray-600">
-                    {new Date(rec.clock_in).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                    {formatTurkeyTime(rec.clock_in)}
                   </td>
                   <td className="p-4 text-gray-600">
-                    {rec.clock_out
-                      ? new Date(rec.clock_out).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-                      : "-"}
+                    {formatTurkeyTime(rec.clock_out)}
                   </td>
                   <td className="p-4 text-gray-600">{rec.break_minutes} dk</td>
                   <td className="p-4">
@@ -676,8 +674,8 @@ function MonthlyRecords({ t }: { t: any }) {
                 <span className="font-semibold text-gray-700">{rec.employees?.name}</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 pt-2 border-t border-gray-50">
-                <div>{t.clockInLabel}: <span className="font-medium text-gray-800">{new Date(rec.clock_in).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span></div>
-                <div>{t.clockOutLabel}: <span className="font-medium text-gray-800">{rec.clock_out ? new Date(rec.clock_out).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : "-"}</span></div>
+                <div>{t.clockInLabel}: <span className="font-medium text-gray-800">{formatTurkeyTime(rec.clock_in)}</span></div>
+                <div>{t.clockOutLabel}: <span className="font-medium text-gray-800">{formatTurkeyTime(rec.clock_out)}</span></div>
                 <div>{t.breakLabel}: <span className="font-medium text-gray-800">{rec.break_minutes} dk</span></div>
                 <div>{t.tableStatus}:{" "}
                   {rec.status === 'working' ? (

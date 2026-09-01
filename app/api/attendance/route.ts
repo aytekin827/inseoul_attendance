@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { sendTelegramAlert } from '@/lib/telegram';
+import { getTurkeyDateString, getTurkeyTimeString, getTurkeyHours } from '@/lib/time';
 
 // GET: 근태 기록 조회
 // - ?status=working : 실시간 근무자만 조회 (Canlı Çalışma Panosu 용)
@@ -85,12 +86,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Geçersiz PIN kodu' }, { status: 401 });
     }
 
-    // 터키 시간대(UTC+3) 기준으로 오늘 날짜(YYYY-MM-DD) 구하기
+    // 터키 시간대(UTC+3) 기준으로 오늘 날짜(YYYY-MM-DD) 및 시각 구하기
     const now = new Date();
-    const trOffsetMs = 3 * 60 * 60 * 1000;
-    const trTime = new Date(now.getTime() + trOffsetMs);
-    const today = trTime.toISOString().split('T')[0];
-    const actualTimeStr = `${String(trTime.getUTCHours()).padStart(2, '0')}:${String(trTime.getUTCMinutes()).padStart(2, '0')}:${String(trTime.getUTCSeconds()).padStart(2, '0')}`;
+    const today = getTurkeyDateString(now);
+    const actualTimeStr = getTurkeyTimeString(now);
 
     if (action === 'clock_in') {
       console.log(`[Attendance API] Checking existing clock-in for Employee ID: ${employeeId} on Date: ${today}`);
@@ -114,19 +113,17 @@ export async function POST(request: Request) {
       }
 
       // [보정 규칙] 오전조 출근 9:00: 9시 전에 와서 찍더라도 9시로 기록되도록 처리 (새벽 5시 ~ 아침 9시 사이 대상)
-      const hours = trTime.getUTCHours();
-      let clockInTime = now;
+      const hours = getTurkeyHours(now);
+      let clockInIso = now.toISOString();
       let notesText = null;
       let isAdjusted = false;
 
       if (hours >= 5 && hours < 9) {
-        const adjustedTrTime = new Date(trTime);
-        adjustedTrTime.setUTCHours(9, 0, 0, 0); // 터키 시간으로 09:00:00 설정
-        clockInTime = new Date(adjustedTrTime.getTime() - trOffsetMs); // UTC 시간으로 복원
+        // 터키 시간 09:00:00 (UTC+3) 기준으로 정확히 저장
+        clockInIso = new Date(`${today}T09:00:00+03:00`).toISOString();
         notesText = `[Giriş 보정] 실제 입력 시각: ${actualTimeStr}`;
         isAdjusted = true;
       }
-      const clockInIso = clockInTime.toISOString();
 
       console.log(`[Attendance API] Inserting new clock-in record for Employee ID: ${employeeId} at: ${clockInIso}`);
       // Insert new working record
@@ -178,21 +175,17 @@ export async function POST(request: Request) {
       }
 
       // [보정 규칙] 오후조 퇴근 22:00: 22시 전에 일찍 찍더라도 22시로 기록되도록 처리 (오후조 출근은 15:30으로 기입된 직원 즉, 13시 이후 출근 대상)
-      const clockInDate = new Date(activeRecord.clock_in);
-      const trInDate = new Date(clockInDate.getTime() + trOffsetMs);
-      const inHours = trInDate.getUTCHours();
+      const inHours = getTurkeyHours(new Date(activeRecord.clock_in));
+      const outHours = getTurkeyHours(now);
 
-      let clockOutTime = now;
+      let clockOutIso = now.toISOString();
       let notesText = activeRecord.notes || null;
       let isAdjusted = false;
 
       if (inHours >= 13) {
-        const outHours = trTime.getUTCHours();
         // 저녁 6시 ~ 밤 10시 사이 일찍 퇴근한 경우 22:00으로 보정
         if (outHours >= 18 && outHours < 22) {
-          const adjustedTrTime = new Date(trTime);
-          adjustedTrTime.setUTCHours(22, 0, 0, 0); // 터키 시간으로 22:00:00 설정
-          clockOutTime = new Date(adjustedTrTime.getTime() - trOffsetMs); // UTC 시간으로 복원
+          clockOutIso = new Date(`${today}T22:00:00+03:00`).toISOString();
           const adjustmentNote = `[Çıkış 보정] 실제 입력 시각: ${actualTimeStr}`;
           notesText = activeRecord.notes ? `${activeRecord.notes} | ${adjustmentNote}` : adjustmentNote;
           isAdjusted = true;
