@@ -110,14 +110,23 @@ inseoul_attendance/
     -- [참고] 기존에 테이블이 이미 생성되어 있는 경우 아래 마이그레이션 SQL을 실행하세요:
     -- ALTER TABLE employees ADD COLUMN yol_parasi NUMERIC(10, 2) NOT NULL DEFAULT 100;
     ```
-3. `Project Settings` > `API` 설정에서 **Project URL**과 **anon public key** 값을 복사해 둡니다.
+3. `Project Settings` > `API` 설정에서 **Project URL**, **anon public key**, **service_role secret key** 값을 확인합니다.
 
-### 2. Vercel 배포
+### 2. Vercel 배포 및 환경 변수
 1. 본인의 GitHub 리포지토리를 [Vercel](https://vercel.com/)에 **Import Project** 합니다.
 2. 배포 설정 페이지 하단의 **Environment Variables**에 아래 변수들을 추가합니다:
    - `NEXT_PUBLIC_SUPABASE_URL` : Supabase Project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` : Supabase anon public key
+   - `SUPABASE_SERVICE_ROLE_KEY` : Supabase service_role secret key (RLS 우회 및 보안 백엔드 연결용)
    - `QR_SECRET_KEY` : 실시간 QR 코드 해싱용 무작위 비밀값 (예: `inseoul_secret_2026`)
    - `TELEGRAM_BOT_TOKEN` : 출퇴근 알림 발송용 텔레그램 봇 토큰 (BotFather에게 발급받은 값)
    - `TELEGRAM_CHAT_ID` : 알림을 수신할 사장님 개인 또는 그룹 채팅방의 ID (예: `-100123456789`)
 3. **[Deploy]** 버튼을 누릅니다. Vercel이 자동으로 프로젝트를 빌드하고 도메인을 할당하여 배포를 완료합니다!
+
+### 3. Supabase RLS (Row Level Security) 설정
+보안 경고를 해결하기 위해 Supabase SQL Editor에서 아래 쿼리를 실행하여 모든 테이블의 RLS를 안전하게 활성화할 수 있습니다 (`SUPABASE_SERVICE_ROLE_KEY`가 백엔드에 등록되어 있으므로 서비스는 정상 작동합니다):
+```sql
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_settings ENABLE ROW LEVEL SECURITY;
+```
