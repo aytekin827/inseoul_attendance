@@ -8,9 +8,13 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('Supabase credentials are missing. Please add them to your environment variables.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
+const safeUrl = supabaseUrl.startsWith('http') ? supabaseUrl : 'https://placeholder.supabase.co';
+const safeKey = supabaseKey || 'placeholder-anon-key';
+
+export const supabase = createClient(safeUrl, safeKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
   }
 });
+
