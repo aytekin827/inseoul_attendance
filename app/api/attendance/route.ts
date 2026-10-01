@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { sendTelegramAlert } from '@/lib/telegram';
-import { getTurkeyDateString, getTurkeyTimeString, getTurkeyHours } from '@/lib/time';
+import { getTurkeyDateString, getTurkeyTimeString, getTurkeyHours, getTurkeyMinutes } from '@/lib/time';
 
 // GET: 근태 기록 조회
 // - ?status=working : 실시간 근무자만 조회 (Canlı Çalışma Panosu 용)
@@ -174,21 +174,33 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Çıkış yapmak için aktif bir giriş kaydı bulunamadı.' }, { status: 400 });
       }
 
-      // [보정 규칙] 오후조 퇴근 22:00: 22시 전에 일찍 찍더라도 22시로 기록되도록 처리 (오후조 출근은 15:30으로 기입된 직원 즉, 13시 이후 출근 대상)
       const inHours = getTurkeyHours(new Date(activeRecord.clock_in));
       const outHours = getTurkeyHours(now);
+      const outMinutes = getTurkeyMinutes(now);
 
       let clockOutIso = now.toISOString();
       let notesText = activeRecord.notes || null;
       let isAdjusted = false;
+      let adjustedLabel = '';
 
-      if (inHours >= 13) {
-        // 저녁 6시 ~ 밤 10시 사이 일찍 퇴근한 경우 22:00으로 보정
+      // [보정 규칙 1] 오전조 퇴근 15:30 보정: 오전(13시 이전 출근) 직원이 15:30 ~ 15:45 사이 퇴근 찍는 경우 15:30:00으로 기록
+      if (inHours < 13) {
+        if (outHours === 15 && outMinutes >= 30 && outMinutes <= 45) {
+          clockOutIso = new Date(`${today}T15:30:00+03:00`).toISOString();
+          const adjustmentNote = `[Çıkış 보정] 실제 입력 시각: ${actualTimeStr}`;
+          notesText = activeRecord.notes ? `${activeRecord.notes} | ${adjustmentNote}` : adjustmentNote;
+          isAdjusted = true;
+          adjustedLabel = '15:30:00 (오전조 기준 적용)';
+        }
+      } 
+      // [보정 규칙 2] 오후조 퇴근 22:00 보정: 오후(13시 이후 출근) 직원이 저녁 18시 ~ 밤 10시 사이 일찍 퇴근한 경우 22:00:00으로 보정
+      else {
         if (outHours >= 18 && outHours < 22) {
           clockOutIso = new Date(`${today}T22:00:00+03:00`).toISOString();
           const adjustmentNote = `[Çıkış 보정] 실제 입력 시각: ${actualTimeStr}`;
           notesText = activeRecord.notes ? `${activeRecord.notes} | ${adjustmentNote}` : adjustmentNote;
           isAdjusted = true;
+          adjustedLabel = '22:00:00 (오후조 기준 적용)';
         }
       }
 
@@ -211,7 +223,7 @@ export async function POST(request: Request) {
       }
 
       // 텔레그램 알림 발송
-      const alertMsg = `🔔 <b>[근태 알림 / Çıkış Bildirimi]</b>\n🔴 <b>퇴근 등록 (Çıkış Yapıldı)</b>\n\n• <b>직원명 (Personel):</b> ${employee.name}\n• <b>날짜 (Tarih):</b> ${today}\n• <b>실제 등록 시간 (Gerçek Çıkış):</b> ${actualTimeStr}${isAdjusted ? `\n• <b>보정 시간 (Düzeltilen Saat):</b> 22:00:00 (오후조 기준 적용)` : ''}`;
+      const alertMsg = `🔔 <b>[근태 알림 / Çıkış Bildirimi]</b>\n🔴 <b>퇴근 등록 (Çıkış Yapıldı)</b>\n\n• <b>직원명 (Personel):</b> ${employee.name}\n• <b>날짜 (Tarih):</b> ${today}\n• <b>실제 등록 시간 (Gerçek Çıkış):</b> ${actualTimeStr}${isAdjusted ? `\n• <b>보정 시간 (Düzeltilen Saat):</b> ${adjustedLabel}` : ''}`;
       await sendTelegramAlert(alertMsg);
 
       console.log("[Attendance API] Clocked out successfully:", updatedRecord);

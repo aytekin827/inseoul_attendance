@@ -1,8 +1,11 @@
 import type { AttendanceRecord, Employee } from "@/types";
-import { formatTurkeyTime } from "@/lib/time";
+import { formatTurkeyTime, getTurkeyHours, getTurkeyMinutes, getTurkeyDateString } from "@/lib/time";
 
 export interface DailyPayrollRecord {
   recordId: string;
+  employeeId: string;
+  employeeName: string;
+  status: 'working' | 'completed';
   workDate: string;             // YYYY-MM-DD
   dayOfWeekKo: string;          // 월, 화, 수, 목, 금, 토, 일
   dayOfWeekTr: string;          // Pzt, Sal, Çar, Per, Cum, Cmt, Paz
@@ -129,8 +132,21 @@ export function getISOWeekKey(dateStr: string): string {
 export function calculateWorkHours(clockIn: string, clockOut: string | null, breakMinutes: number): number {
   if (!clockOut) return 0;
   
-  const inTime = new Date(clockIn).getTime();
-  const outTime = new Date(clockOut).getTime();
+  const inDate = new Date(clockIn);
+  let outDate = new Date(clockOut);
+
+  // [보정 규칙] 오전조(13시 이전 출근) 퇴근 시각이 15:30 ~ 15:45 사이인 경우 15:30으로 계산
+  const inHours = getTurkeyHours(inDate);
+  const outHours = getTurkeyHours(outDate);
+  const outMinutes = getTurkeyMinutes(outDate);
+
+  if (inHours < 13 && outHours === 15 && outMinutes >= 30 && outMinutes <= 45) {
+    const workDate = getTurkeyDateString(inDate);
+    outDate = new Date(`${workDate}T15:30:00+03:00`);
+  }
+
+  const inTime = inDate.getTime();
+  const outTime = outDate.getTime();
   
   const durationMs = outTime - inTime;
   const durationMinutes = durationMs / (1000 * 60);
@@ -220,6 +236,9 @@ export function calculateMonthlyPayroll(employees: Employee[], records: Attendan
 
       dailyRecords.push({
         recordId: record.id,
+        employeeId: emp.id,
+        employeeName: emp.name,
+        status: record.status,
         workDate: record.work_date,
         dayOfWeekKo: days.ko,
         dayOfWeekTr: days.tr,

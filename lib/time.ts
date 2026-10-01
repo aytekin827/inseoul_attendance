@@ -71,6 +71,22 @@ export function getTurkeyHours(dateInput?: Date | string | null): number {
 }
 
 /**
+ * 튀르키예 기준 분(0-59) 숫자 반환
+ */
+export function getTurkeyMinutes(dateInput?: Date | string | null): number {
+  const date = dateInput ? (typeof dateInput === 'string' ? new Date(dateInput) : dateInput) : new Date();
+  if (isNaN(date.getTime())) return 0;
+
+  const minStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: TURKEY_TIMEZONE,
+    minute: 'numeric',
+    hour12: false
+  }).format(date);
+
+  return parseInt(minStr, 10);
+}
+
+/**
  * HTML <input type="datetime-local"> 용 "YYYY-MM-DDTHH:mm" 형식 문자열 생성 (튀르키예 시간 기준)
  */
 export function formatTurkeyDateTimeLocal(dateInput: string | Date | null | undefined): string {

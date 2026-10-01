@@ -12,11 +12,20 @@ import {
   Coins, 
   Users, 
   CalendarCheck,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Edit2,
+  X,
+  Check,
+  AlertCircle
 } from "lucide-react";
-import { calculateMonthlyPayroll, PayrollSummary } from "@/lib/payroll";
+import { calculateMonthlyPayroll, PayrollSummary, DailyPayrollRecord } from "@/lib/payroll";
 import type { Employee, AttendanceRecord } from "@/types";
-import { getTurkeyDateString } from "@/lib/time";
+import { 
+  getTurkeyDateString, 
+  formatTurkeyDateTimeLocal, 
+  parseTurkeyDateTimeLocal, 
+  formatTurkeyTime 
+} from "@/lib/time";
 import * as XLSX from "xlsx";
 
 type RecordWithEmployee = AttendanceRecord & {
@@ -82,6 +91,29 @@ const translations = {
     colDailyYolParasi: "Yol Parası",
     colNotes: "Not / Düzeltme",
     colDailyTotal: "Günlük Tutar",
+    colDailyAction: "Düzenle",
+    editRecordBtn: "Düzenle",
+    
+    // Edit Modal Translations
+    editModalTitle: "Çalışma Kaydını ve Saatleri Düzenle",
+    editModalSubtitle: "Giriş/çıkış saati veya not güncellendiğinde tüm maaş anında yeniden hesaplanır.",
+    empLabel: "Personel Adı",
+    dateLabel: "Çalışma Tarihi",
+    clockInLabel: "Giriş Tarihi & Saati",
+    clockOutLabel: "Çıkış Tarihi & Saati",
+    breakLabel: "Mola Süresi (Dakika)",
+    statusLabel: "Çalışma Durumu",
+    statusWorking: "Çalışıyor (working)",
+    statusCompleted: "Tamamlandı (completed)",
+    notesLabel: "Not / Düzeltme Açıklaması",
+    notesPlaceholder: "Örn: Resmi tatil veya giriş/çıkış saati düzeltildi",
+    quickTagHoliday: "+ Resmi Tatil (%200)",
+    cancel: "İptal",
+    save: "Kaydet ve Maaşı Yeniden Hesapla",
+    saving: "Kaydediliyor...",
+    saveSuccess: "Kayıt başarıyla güncellendi ve maaş yeniden hesaplandı!",
+    rowClickHint: "💡 Saatleri 또는 Notları değiştirmek için satıra veya Düzenle butonuna tıklayın.",
+    editPrompt: "Düzenlemek için dokunun",
     
     // Status Badges
     statusNormal: "≤45sa Normal",
@@ -151,6 +183,29 @@ const translations = {
     colDailyYolParasi: "교통비 (욜파라)",
     colNotes: "Note (메모)",
     colDailyTotal: "당일 급여",
+    colDailyAction: "수정",
+    editRecordBtn: "수정",
+    
+    // Edit Modal Translations
+    editModalTitle: "출퇴근 시간 및 근태 기록 수정",
+    editModalSubtitle: "출퇴근 시간이나 메모를 수정하면 DB에 반영되고 급여가 즉시 자동 재계산됩니다.",
+    empLabel: "직원 이름",
+    dateLabel: "근무 일자",
+    clockInLabel: "출근 일시",
+    clockOutLabel: "퇴근 일시",
+    breakLabel: "휴게시간 (분 단위)",
+    statusLabel: "근무 상태",
+    statusWorking: "근무 중 (working)",
+    statusCompleted: "정상 완료 (completed)",
+    notesLabel: "메모 / 보정 사유",
+    notesPlaceholder: "예: 공식 국경일(Resmi tatil) 또는 출퇴근 시간 정정 사유",
+    quickTagHoliday: "+ 국경일/공휴일 (Resmi tatil)",
+    cancel: "취소",
+    save: "저장 및 급여 재계산",
+    saving: "저장 중...",
+    saveSuccess: "기록이 성공적으로 수정되었으며 급여가 즉시 재계산되었습니다!",
+    rowClickHint: "💡 행을 클릭하거나 '수정' 버튼을 누르면 출퇴근 시간과 메모를 수정할 수 있습니다.",
+    editPrompt: "수정하려면 터치",
     
     // Status Badges
     statusNormal: "45h 이내",
@@ -179,6 +234,18 @@ export default function PayrollPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedEmployeeIds, setExpandedEmployeeIds] = useState<Set<string>>(new Set());
+
+  // Edit Record Modal States
+  const [editingRecord, setEditingRecord] = useState<DailyPayrollRecord | null>(null);
+  const [editWorkDate, setEditWorkDate] = useState("");
+  const [editClockIn, setEditClockIn] = useState("");
+  const [editClockOut, setEditClockOut] = useState("");
+  const [editBreakMinutes, setEditBreakMinutes] = useState(0);
+  const [editStatus, setEditStatus] = useState<"working" | "completed">("completed");
+  const [editNotes, setEditNotes] = useState("");
+  const [isSavingRecord, setIsSavingRecord] = useState(false);
+  const [editRecordError, setEditRecordError] = useState("");
+  const [editRecordSuccess, setEditRecordSuccess] = useState("");
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
@@ -250,6 +317,62 @@ export default function PayrollPage() {
       loadPayrollData();
     }
   }, [loadPayrollData, isAuthenticated]);
+
+  // 근태 기록 수정 모달 열기
+  const openEditRecordModal = (record: DailyPayrollRecord) => {
+    setEditingRecord(record);
+    setEditWorkDate(record.workDate);
+    setEditClockIn(formatTurkeyDateTimeLocal(record.clockIn));
+    setEditClockOut(record.clockOut ? formatTurkeyDateTimeLocal(record.clockOut) : "");
+    setEditBreakMinutes(record.breakMinutes || 0);
+    setEditStatus(record.status || "completed");
+    setEditNotes(record.notes || "");
+    setEditRecordError("");
+    setEditRecordSuccess("");
+  };
+
+  // 근태 기록 수정 저장
+  const handleSaveRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+    setIsSavingRecord(true);
+    setEditRecordError("");
+    setEditRecordSuccess("");
+
+    try {
+      const res = await fetch("/api/attendance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingRecord.recordId,
+          workDate: editWorkDate,
+          clockIn: parseTurkeyDateTimeLocal(editClockIn),
+          clockOut: editClockOut ? parseTurkeyDateTimeLocal(editClockOut) : null,
+          breakMinutes: editBreakMinutes,
+          status: editStatus,
+          notes: editNotes
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setEditRecordSuccess(t.saveSuccess);
+        // 즉시 급여 데이터 재로딩 및 재계산 반영
+        await loadPayrollData();
+        setTimeout(() => {
+          setEditingRecord(null);
+          setEditRecordSuccess("");
+        }, 700);
+      } else {
+        setEditRecordError(data.error || (lang === "tr" ? "Kayıt güncellenemedi" : "수정에 실패했습니다"));
+      }
+    } catch (err) {
+      console.error("Attendance update error:", err);
+      setEditRecordError(lang === "tr" ? "Bağlantı hatası oluştu" : "서버 연결 오류가 발생했습니다");
+    } finally {
+      setIsSavingRecord(false);
+    }
+  };
 
   // 검색 필터링된 급여 목록
   const filteredSummaries = useMemo(() => {
@@ -774,7 +897,7 @@ export default function PayrollPage() {
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
                   type="text" 
-                  placeholder={t.searchPlaceholder}
+                  placeholder={t.searchPlaceholder} 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
@@ -876,22 +999,20 @@ export default function PayrollPage() {
                             <td colSpan={14} className="p-0 bg-gray-50/80 border-y border-blue-100">
                               <div className="p-5 space-y-3 animate-in fade-in duration-200">
                                 
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                   <div className="flex items-center gap-2">
                                     <Clock className="w-4 h-4 text-blue-600" />
                                     <h4 className="font-bold text-sm text-gray-800">
                                       {payroll.employeeName} - {t.dailyDetailTitle} ({payroll.dailyRecords.length}{lang === "tr" ? " kayıt" : "건"})
                                     </h4>
                                   </div>
-                                  <span className="text-xs text-gray-500 font-medium">
-                                    {lang === "tr" 
-                                      ? "Normal: %100 | Fazla Mesai (>45sa): %150 | Resmi Tatil: %200" 
-                                      : "기본: 100% | 연장근무(주 45h 초과): 150%(1.5배) | 공휴일: 200%(2배)"}
+                                  <span className="text-xs text-blue-600 font-medium">
+                                    {t.rowClickHint}
                                   </span>
                                 </div>
 
                                 <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
-                                  <table className="w-full text-xs text-left">
+                                  <table className="w-full text-xs text-left min-w-[1200px]">
                                     <thead className="bg-gray-100/70 border-b border-gray-200 text-gray-600">
                                       <tr>
                                         <th className="p-3 font-bold text-left">{t.colDate}</th>
@@ -908,11 +1029,17 @@ export default function PayrollPage() {
                                         <th className="p-3 font-bold text-right">{t.colDailyYolParasi}</th>
                                         <th className="p-3 font-bold text-left">{t.colNotes}</th>
                                         <th className="p-3 font-bold text-right">{t.colDailyTotal}</th>
+                                        <th className="p-3 font-bold text-center">{t.colDailyAction}</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                       {payroll.dailyRecords.map((record) => (
-                                        <tr key={record.recordId} className="hover:bg-blue-50/20">
+                                        <tr 
+                                          key={record.recordId} 
+                                          onClick={() => openEditRecordModal(record)}
+                                          className="hover:bg-blue-50/40 cursor-pointer transition-colors group"
+                                          title={lang === "tr" ? "Düzenlemek için tıklayın" : "출퇴근 및 메모 수정을 위해 클릭하세요"}
+                                        >
                                           <td className="p-3 font-semibold text-gray-800 font-mono text-left">{record.workDate}</td>
                                           <td className="p-3 text-center text-gray-600 font-medium">
                                             {lang === "ko" ? record.dayOfWeekKo : record.dayOfWeekTr}
@@ -961,6 +1088,19 @@ export default function PayrollPage() {
                                           <td className="p-3 text-right font-bold text-blue-600 font-mono bg-blue-50/10">
                                             {record.dailyTotalPay.toLocaleString()} TL
                                           </td>
+                                          <td className="p-3 text-center">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openEditRecordModal(record);
+                                              }}
+                                              className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100 group-hover:shadow-sm"
+                                              title={t.editRecordBtn}
+                                            >
+                                              <Edit2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -985,6 +1125,7 @@ export default function PayrollPage() {
                                         <td className="p-3 text-right text-sm text-blue-600 font-mono bg-blue-50/40">
                                           {payroll.totalPay.toLocaleString()} TL
                                         </td>
+                                        <td></td>
                                       </tr>
                                     </tfoot>
                                   </table>
@@ -1096,12 +1237,27 @@ export default function PayrollPage() {
                     {/* Mobile Daily Details */}
                     {isExpanded && (
                       <div className="mt-3 pt-3 border-t border-gray-100 space-y-2.5 animate-in fade-in duration-200">
-                        <div className="text-xs font-bold text-gray-700 mb-1">{t.dailyDetailTitle}</div>
+                        <div className="flex justify-between items-center text-xs font-bold text-gray-700 mb-1">
+                          <span>{t.dailyDetailTitle}</span>
+                          <span className="text-[10px] text-blue-600 font-normal">{t.editPrompt || "수정하려면 터치"}</span>
+                        </div>
                         {payroll.dailyRecords.map((record) => (
-                          <div key={record.recordId} className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs space-y-1.5">
+                          <div 
+                            key={record.recordId} 
+                            onClick={() => openEditRecordModal(record)}
+                            className="p-3 bg-gray-50 hover:bg-blue-50/40 active:bg-blue-100/50 cursor-pointer rounded-xl border border-gray-200/80 text-xs space-y-2 transition-colors shadow-xs"
+                          >
                             <div className="flex justify-between items-center font-bold">
-                              <span className="text-gray-800">{record.workDate} ({lang === "ko" ? record.dayOfWeekKo : record.dayOfWeekTr})</span>
-                              <span className="text-blue-600 font-mono">{record.dailyTotalPay.toLocaleString()} TL</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-800">{record.workDate} ({lang === "ko" ? record.dayOfWeekKo : record.dayOfWeekTr})</span>
+                                <span className="text-[10px] text-gray-400 font-normal">{record.weekKey}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-blue-600 font-mono">{record.dailyTotalPay.toLocaleString()} TL</span>
+                                <span className="p-1 bg-white border border-gray-200 text-blue-600 rounded">
+                                  <Edit2 className="w-3 h-3" />
+                                </span>
+                              </div>
                             </div>
                             <div className="flex justify-between text-gray-600 text-[11px]">
                               <span>{t.colClockIn}: <b className="text-emerald-700">{record.clockInTime}</b></span>
@@ -1136,7 +1292,7 @@ export default function PayrollPage() {
                               )}
                             </div>
                             {record.notes && (
-                              <div className="text-[10px] text-gray-400 bg-white p-1.5 rounded border border-gray-100">
+                              <div className="text-[10px] text-gray-500 bg-white p-1.5 rounded border border-gray-100">
                                 <b>Note:</b> {record.notes}
                               </div>
                             )}
@@ -1153,6 +1309,195 @@ export default function PayrollPage() {
         </div>
 
       </div>
+
+      {/* ======================================================== */}
+      {/* 근태 기록 및 출퇴근 시간 수정 모달 (Edit Attendance Modal) */}
+      {/* ======================================================== */}
+      {editingRecord && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200"
+          onClick={() => !isSavingRecord && setEditingRecord(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-gray-100 pb-4">
+              <div>
+                <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <Edit2 className="w-5 h-5 text-blue-600" />
+                  {t.editModalTitle}
+                </h4>
+                <p className="text-xs text-gray-500 mt-1">{t.editModalSubtitle}</p>
+              </div>
+              <button 
+                onClick={() => setEditingRecord(null)} 
+                disabled={isSavingRecord}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Alert Messages */}
+            {editRecordError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{editRecordError}</span>
+              </div>
+            )}
+            {editRecordSuccess && (
+              <div className="p-3 bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl flex items-center gap-2">
+                <Check className="w-4 h-4 flex-shrink-0" />
+                <span>{editRecordSuccess}</span>
+              </div>
+            )}
+
+            {/* Edit Form */}
+            <form onSubmit={handleSaveRecord} className="space-y-4 text-xs">
+              
+              {/* Employee Name (Read Only) */}
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">{t.empLabel}</label>
+                <div className="flex items-center gap-2 p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 font-bold">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                    {editingRecord.employeeName.charAt(0)}
+                  </div>
+                  <span>{editingRecord.employeeName}</span>
+                </div>
+              </div>
+
+              {/* Date and Break Minutes */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">{t.dateLabel}</label>
+                  <input 
+                    type="date" 
+                    required 
+                    value={editWorkDate} 
+                    onChange={(e) => setEditWorkDate(e.target.value)} 
+                    className="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-xs font-medium outline-none" 
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">{t.breakLabel}</label>
+                  <input 
+                    type="number" 
+                    required 
+                    min={0} 
+                    step={1}
+                    value={editBreakMinutes} 
+                    onChange={(e) => setEditBreakMinutes(Number(e.target.value))} 
+                    className="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-800 text-xs font-mono outline-none" 
+                  />
+                </div>
+              </div>
+
+              {/* Clock In & Clock Out Pickers */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-emerald-800 mb-1 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    {t.clockInLabel}
+                  </label>
+                  <input 
+                    type="datetime-local" 
+                    required 
+                    value={editClockIn} 
+                    onChange={(e) => setEditClockIn(e.target.value)} 
+                    className="w-full p-2.5 bg-emerald-50/20 border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-gray-800 text-xs font-mono outline-none" 
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-rose-800 mb-1 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    {t.clockOutLabel}
+                  </label>
+                  <input 
+                    type="datetime-local" 
+                    value={editClockOut} 
+                    onChange={(e) => setEditClockOut(e.target.value)} 
+                    className="w-full p-2.5 bg-rose-50/20 border border-rose-300 rounded-xl focus:ring-2 focus:ring-rose-500 text-gray-800 text-xs font-mono outline-none" 
+                  />
+                </div>
+              </div>
+
+              {/* Status Select */}
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">{t.statusLabel}</label>
+                <select 
+                  value={editStatus} 
+                  onChange={(e) => setEditStatus(e.target.value as "working" | "completed")} 
+                  className="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-800 text-xs outline-none bg-white cursor-pointer font-medium"
+                >
+                  <option value="completed">{t.statusCompleted}</option>
+                  <option value="working">{t.statusWorking}</option>
+                </select>
+              </div>
+
+              {/* Notes with Quick Tag */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block font-semibold text-gray-700">{t.notesLabel}</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditNotes(prev => {
+                        const tag = "Resmi tatil";
+                        if (!prev) return tag;
+                        if (prev.toLowerCase().includes("resmi tatil")) return prev;
+                        return `${prev} | ${tag}`;
+                      });
+                    }}
+                    className="text-[10px] font-bold text-orange-700 bg-orange-100 hover:bg-orange-200 px-2 py-0.5 rounded-md border border-orange-200 transition-colors"
+                  >
+                    {t.quickTagHoliday}
+                  </button>
+                </div>
+                <textarea 
+                  value={editNotes} 
+                  placeholder={t.notesPlaceholder} 
+                  onChange={(e) => setEditNotes(e.target.value)} 
+                  className="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-gray-800 text-xs outline-none resize-none" 
+                  rows={2} 
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-3 border-t border-gray-100">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingRecord(null)} 
+                  disabled={isSavingRecord}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors text-xs"
+                >
+                  {t.cancel}
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSavingRecord}
+                  className="flex-1 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors text-xs shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSavingRecord ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>{t.saving}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>{t.save}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
