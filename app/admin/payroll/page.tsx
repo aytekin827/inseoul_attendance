@@ -31,7 +31,7 @@ const translations = {
   tr: {
     backBtn: "Yönetici Paneline Geri Dön",
     title: "Maaş Hesaplama ve Bordro Yönetimi",
-    subtitle: "Personel bazlı çalışma saatleri, 45 saatlik haftalık yasal mesai/fazla mesai ayrımı, hafta tatili, yol parası ve resmi tatil 2x ücreti",
+    subtitle: "Toplam çalışma süresi x saatlik ücret, haftalık 45 saati aşan mesailer için %150 (1.5x) zamlı ücret, resmi tatiller için %200 (2x) ücret ve yol parası hesabı",
     downloadBtn: "Excel İndir (Çoklu Sayfa)",
     downloading: "Hazırlanıyor...",
     tableTitle: "Personel Bazlı Maaş Özeti",
@@ -59,12 +59,11 @@ const translations = {
     colNormalHours: "Normal Mesai (≤45sa)",
     colOvertimeHours: "Fazla Mesai (>45sa)",
     colTotalHours: "Toplam Süre",
-    colBasePay: "Normal Mesai Ücreti",
-    colOvertimePay: "Fazla Mesai Ücreti",
-    colHolidayAllowance: "Haftalık Tatil Ücreti",
+    colBasePay: "Normal Mesai Ücreti (%100)",
+    colOvertimePay: "Fazla Mesai Ücreti (%150)",
     colYolParasi: "Yol Parası",
     colHolidayHours: "Resmi Tatil Çalışma",
-    colHolidayPay: "Resmi Tatil Ek Ödeme",
+    colHolidayPay: "Resmi Tatil Ek Ödeme (+%100)",
     colTotalPay: "Toplam Ödenecek",
     colAction: "Detay",
     
@@ -76,17 +75,17 @@ const translations = {
     colClockOut: "Çıkış Saati",
     colBreak: "Mola (dk)",
     colDailyWorkHours: "Çalışma Süresi",
-    colDailyNormal: "≤45sa Normal",
-    colDailyOvertime: ">45sa Fazla",
+    colDailyNormal: "≤45sa (%100)",
+    colDailyOvertime: ">45sa (%150)",
     colOvertimeStatus: "45sa Durumu",
-    colIsHoliday: "Resmi Tatil",
+    colIsHoliday: "Resmi Tatil (%200)",
     colDailyYolParasi: "Yol Parası",
     colNotes: "Not / Düzeltme",
     colDailyTotal: "Günlük Tutar",
     
     // Status Badges
     statusNormal: "≤45sa Normal",
-    statusOvertime: ">45sa Fazla",
+    statusOvertime: ">45sa Fazla (%150)",
     statusSplit: "Kısmi Fazla",
     badgeHoliday: "Resmi Tatil (2x)",
     
@@ -101,7 +100,7 @@ const translations = {
   ko: {
     backBtn: "관리자 패널로 돌아가기",
     title: "급여 정산 및 관리",
-    subtitle: "직원별 주 45시간 기본/연장근무 분할, 주휴수당, 교통비(욜파라) 및 국경일 2배수 급여 자동 산정",
+    subtitle: "총 일한 시간 × 시급 기본 체계, 주 45시간 초과 근무 150%(1.5배), 공휴일 근무 200%(2.0배), 일별 교통비(욜파라) 자동 산정",
     downloadBtn: "Excel 다운로드 (전체 요약 + 개인별 시트)",
     downloading: "다운로드 중...",
     tableTitle: "직원별 급여 정산 요약",
@@ -129,12 +128,11 @@ const translations = {
     colNormalHours: "기본 근무 (≤45h)",
     colOvertimeHours: "연장 근무 (>45h)",
     colTotalHours: "총 근무시간",
-    colBasePay: "기본급",
-    colOvertimePay: "연장 근로 수당",
-    colHolidayAllowance: "주휴수당",
+    colBasePay: "기본급 (100%)",
+    colOvertimePay: "연장 수당 (150%)",
     colYolParasi: "교통비 (욜파라)",
     colHolidayHours: "국경일 근무시간",
-    colHolidayPay: "국경일 추가 수당",
+    colHolidayPay: "국경일 추가 수당 (+100%)",
     colTotalPay: "최종 지급액",
     colAction: "상세",
     
@@ -146,19 +144,19 @@ const translations = {
     colClockOut: "퇴근시간",
     colBreak: "휴게시간(분)",
     colDailyWorkHours: "실 근무시간",
-    colDailyNormal: "45h 이내",
-    colDailyOvertime: "45h 초과",
+    colDailyNormal: "45h 이내 (100%)",
+    colDailyOvertime: "45h 초과 (150%)",
     colOvertimeStatus: "45h 구분",
-    colIsHoliday: "국경일",
+    colIsHoliday: "국경일 (200%)",
     colDailyYolParasi: "교통비 (욜파라)",
     colNotes: "Note (메모)",
     colDailyTotal: "당일 급여",
     
     // Status Badges
-    statusNormal: "45h 이내 (Normal)",
-    statusOvertime: "45h 초과 (Overtime)",
+    statusNormal: "45h 이내",
+    statusOvertime: "45h 초과 (150%)",
     statusSplit: "일부 초과(분할)",
-    badgeHoliday: "국경일 (2배)",
+    badgeHoliday: "국경일 (200%)",
     
     // Auth Gate
     authTitle: "관리자 로그인",
@@ -269,7 +267,6 @@ export default function PayrollPage() {
     let totalHours = 0;
     let totalBasePay = 0;
     let totalOvertimePay = 0;
-    let totalWeeklyHoliday = 0;
     let totalYolParasi = 0;
     let totalHolidayHours = 0;
     let totalHolidayPay = 0;
@@ -282,7 +279,6 @@ export default function PayrollPage() {
       totalHours += s.totalWorkHours;
       totalBasePay += s.basePay;
       totalOvertimePay += s.overtimePay;
-      totalWeeklyHoliday += s.weeklyHolidayAllowance;
       totalYolParasi += s.yolParasi;
       totalHolidayHours += s.holidayWorkHours;
       totalHolidayPay += s.holidayAdditionalPay;
@@ -297,7 +293,6 @@ export default function PayrollPage() {
       totalHours: Number(totalHours.toFixed(2)),
       totalBasePay,
       totalOvertimePay,
-      totalWeeklyHoliday,
       totalYolParasi,
       totalHolidayHours: Number(totalHolidayHours.toFixed(2)),
       totalHolidayPay,
@@ -355,12 +350,11 @@ export default function PayrollPage() {
             "기본 근무 (주 45h 이하)",
             "연장 근무 (주 45h 초과)",
             "총 근무시간",
-            "기본급 (TL)",
-            "연장 근로 수당 (TL)",
-            "주휴수당 (TL)",
+            "기본급 (100% TL)",
+            "연장 근로 수당 (150% TL)",
             "교통비 총합 (TL)",
             "국경일 근무시간",
-            "국경일 추가 수당 (TL)",
+            "국경일 추가 수당 (+100% TL)",
             "최종 지급액 (TL)"
           ]
         : [
@@ -371,12 +365,11 @@ export default function PayrollPage() {
             "Normal Mesai (≤45sa)",
             "Fazla Mesai (>45sa)",
             "Toplam Süre",
-            "Normal Mesai Ücreti (TL)",
-            "Fazla Mesai Ücreti (TL)",
-            "Haftalık Tatil Ücreti (TL)",
+            "Normal Mesai Ücreti (%100 TL)",
+            "Fazla Mesai Ücreti (%150 TL)",
             "Yol Parası Toplam (TL)",
             "Resmi Tatil Çalışma",
-            "Resmi Tatil Ek Ödeme (TL)",
+            "Resmi Tatil Ek Ödeme (+%100 TL)",
             "Toplam Ödenecek (TL)"
           ];
 
@@ -384,6 +377,11 @@ export default function PayrollPage() {
       
       // Title Banner
       summaryRows.push([isKo ? `[inseoul] ${yearMonth} 전체 직원 급여 정산 요약표` : `[inseoul] ${yearMonth} Genel Maaş Bordrosu Özeti`]);
+      summaryRows.push([
+        isKo 
+          ? `[산정 기준] 기본근무: 100% | 연장근무(주 45h 초과): 150% (1.5배) | 공휴일근무: 200% (2배) | 교통비: 근무일수 × 일일 욜파라` 
+          : `[Hesaplama Kuralı] Normal: %100 | Fazla Mesai (>45sa): %150 (1.5x) | Resmi Tatil: %200 (2x) | Yol: Çalışılan Gün × Yol Parası`
+      ]);
       summaryRows.push([isKo ? `출력일시: ${new Date().toLocaleString('ko-KR')}` : `Rapor Tarihi: ${new Date().toLocaleString('tr-TR')}`]);
       summaryRows.push([]); // 빈 줄
       summaryRows.push(summaryHeaders);
@@ -394,7 +392,6 @@ export default function PayrollPage() {
       let totalAllHours = 0;
       let totalBasePay = 0;
       let totalOvertimePay = 0;
-      let totalWeeklyHoliday = 0;
       let totalYolParasi = 0;
       let totalHolidayHours = 0;
       let totalHolidayPay = 0;
@@ -407,7 +404,6 @@ export default function PayrollPage() {
         totalAllHours += payroll.totalWorkHours;
         totalBasePay += payroll.basePay;
         totalOvertimePay += payroll.overtimePay;
-        totalWeeklyHoliday += payroll.weeklyHolidayAllowance;
         totalYolParasi += payroll.yolParasi;
         totalHolidayHours += payroll.holidayWorkHours;
         totalHolidayPay += payroll.holidayAdditionalPay;
@@ -423,7 +419,6 @@ export default function PayrollPage() {
           payroll.totalWorkHours,
           payroll.basePay,
           payroll.overtimePay,
-          payroll.weeklyHolidayAllowance,
           payroll.yolParasi,
           payroll.holidayWorkHours,
           payroll.holidayAdditionalPay,
@@ -442,7 +437,6 @@ export default function PayrollPage() {
         Number(totalAllHours.toFixed(2)),
         totalBasePay,
         totalOvertimePay,
-        totalWeeklyHoliday,
         totalYolParasi,
         Number(totalHolidayHours.toFixed(2)),
         totalHolidayPay,
@@ -454,7 +448,7 @@ export default function PayrollPage() {
       // 열 너비 자동 보정
       const summaryColWidths = summaryHeaders.map((hdr, colIdx) => {
         let maxLen = hdr.length * 2;
-        for (let r = 3; r < summaryRows.length; r++) {
+        for (let r = 4; r < summaryRows.length; r++) {
           const val = summaryRows[r]?.[colIdx];
           if (val !== undefined && val !== null) {
             maxLen = Math.max(maxLen, String(val).length + 2);
@@ -494,13 +488,13 @@ export default function PayrollPage() {
         ]);
         empRows.push([
           isKo 
-            ? `직원명: ${payroll.employeeName} | 시급: ${payroll.hourlyRate} TL | 1일 교통비: ${payroll.yolParasiRate} TL | 총 근무일수: ${payroll.workedDaysCount}일`
-            : `Personel: ${payroll.employeeName} | Saatlik Ücret: ${payroll.hourlyRate} TL | Günlük Yol: ${payroll.yolParasiRate} TL | Çalışılan Gün: ${payroll.workedDaysCount} gün`
+            ? `직원명: ${payroll.employeeName} | 시급: ${payroll.hourlyRate} TL | 1일 교통비: ${payroll.yolParasiRate} TL | 총 근무일수: ${payroll.workedDaysCount}일 | 총 근무시간: ${payroll.totalWorkHours}시간`
+            : `Personel: ${payroll.employeeName} | Saatlik Ücret: ${payroll.hourlyRate} TL | Günlük Yol: ${payroll.yolParasiRate} TL | Çalışılan Gün: ${payroll.workedDaysCount} gün | Toplam Süre: ${payroll.totalWorkHours} sa`
         ]);
         empRows.push([
           isKo
-            ? `기본급: ${payroll.basePay.toLocaleString()} TL | 연장수당: ${payroll.overtimePay.toLocaleString()} TL | 주휴수당: ${payroll.weeklyHolidayAllowance.toLocaleString()} TL | 교통비: ${payroll.yolParasi.toLocaleString()} TL | 국경일추가: ${payroll.holidayAdditionalPay.toLocaleString()} TL | 최종지급액: ${payroll.totalPay.toLocaleString()} TL`
-            : `Normal Mesai: ${payroll.basePay.toLocaleString()} TL | Fazla Mesai: ${payroll.overtimePay.toLocaleString()} TL | Hafta Tatili: ${payroll.weeklyHolidayAllowance.toLocaleString()} TL | Yol Parası: ${payroll.yolParasi.toLocaleString()} TL | Resmi Tatil: ${payroll.holidayAdditionalPay.toLocaleString()} TL | Toplam Ödenecek: ${payroll.totalPay.toLocaleString()} TL`
+            ? `기본급(100%): ${payroll.basePay.toLocaleString()} TL | 연장수당(150%): ${payroll.overtimePay.toLocaleString()} TL | 국경일추가(+100%): ${payroll.holidayAdditionalPay.toLocaleString()} TL | 교통비: ${payroll.yolParasi.toLocaleString()} TL | 최종 지급액: ${payroll.totalPay.toLocaleString()} TL`
+            : `Normal Mesai (%100): ${payroll.basePay.toLocaleString()} TL | Fazla Mesai (%150): ${payroll.overtimePay.toLocaleString()} TL | Resmi Tatil Ek (+%100): ${payroll.holidayAdditionalPay.toLocaleString()} TL | Yol Parası: ${payroll.yolParasi.toLocaleString()} TL | Toplam Ödenecek: ${payroll.totalPay.toLocaleString()} TL`
         ]);
         empRows.push([]); // 빈 줄
 
@@ -514,10 +508,10 @@ export default function PayrollPage() {
               "퇴근시간",
               "휴게시간(분)",
               "실 근무시간 (시간)",
-              "45h 이내 (시간)",
-              "45h 초과 (시간)",
+              "45h 이내 (100%)",
+              "45h 초과 (150%)",
               "45h 초과 여부",
-              "국경일 여부",
+              "국경일 여부 (200%)",
               "교통비 (TL)",
               "Note (메모 / 보정)",
               "당일 급여 (TL)"
@@ -530,10 +524,10 @@ export default function PayrollPage() {
               "Çıkış Saati",
               "Mola (dk)",
               "Çalışma Süresi (sa)",
-              "≤45sa Normal (sa)",
-              ">45sa Fazla (sa)",
+              "≤45sa Normal (%100)",
+              ">45sa Fazla (%150)",
               "45sa Durumu",
-              "Resmi Tatil",
+              "Resmi Tatil (%200)",
               "Yol Parası (TL)",
               "Not / Düzeltme",
               "Günlük Tutar (TL)"
@@ -560,13 +554,13 @@ export default function PayrollPage() {
           if (record.overtimeStatus === "normal") {
             statusStr = isKo ? "45h 이내" : "Normal (≤45sa)";
           } else if (record.overtimeStatus === "overtime") {
-            statusStr = isKo ? "45h 초과" : "Fazla Mesai (>45sa)";
+            statusStr = isKo ? "45h 초과 (150%)" : "Fazla Mesai (%150)";
           } else {
             statusStr = isKo ? "일부 초과(분할)" : "Kısmi Fazla";
           }
 
           const holidayStr = record.isHoliday 
-            ? (isKo ? "국경일 (2배)" : "Resmi Tatil (2x)") 
+            ? (isKo ? "공휴일 (200%)" : "Resmi Tatil (%200)") 
             : "-";
 
           empRows.push([
@@ -599,9 +593,9 @@ export default function PayrollPage() {
           Number(empTotalNormalHours.toFixed(2)),
           Number(empTotalOvertimeHours.toFixed(2)),
           isKo ? `총 ${payroll.workedDaysCount}일 근무` : `${payroll.workedDaysCount} gün çalışma`,
-          payroll.holidayWorkHours > 0 ? (isKo ? `국경일 ${payroll.holidayWorkHours}시간` : `Resmi Tatil ${payroll.holidayWorkHours} sa`) : "-",
+          payroll.holidayWorkHours > 0 ? (isKo ? `공휴일 ${payroll.holidayWorkHours}시간` : `Resmi Tatil ${payroll.holidayWorkHours} sa`) : "-",
           empTotalYolParasi,
-          isKo ? `주휴수당 +${payroll.weeklyHolidayAllowance.toLocaleString()} TL 포함` : `Haftalık tatil +${payroll.weeklyHolidayAllowance.toLocaleString()} TL dahil`,
+          isKo ? `연장 150% / 공휴일 200% 적용 완료` : `Fazla %150 / Tatil %200 dahil`,
           payroll.totalPay
         ]);
 
@@ -812,7 +806,6 @@ export default function PayrollPage() {
                   <th className="p-3.5 text-xs font-bold text-gray-800 text-right">{t.colTotalHours}</th>
                   <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colBasePay}</th>
                   <th className="p-3.5 text-xs font-bold text-purple-700 text-right">{t.colOvertimePay}</th>
-                  <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colHolidayAllowance}</th>
                   <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colYolParasi}</th>
                   <th className="p-3.5 text-xs font-bold text-orange-600 text-right">{t.colHolidayHours}</th>
                   <th className="p-3.5 text-xs font-bold text-orange-600 text-right">{t.colHolidayPay}</th>
@@ -823,11 +816,11 @@ export default function PayrollPage() {
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={15} className="p-12 text-center text-gray-500 font-medium">{t.calculating}</td>
+                    <td colSpan={14} className="p-12 text-center text-gray-500 font-medium">{t.calculating}</td>
                   </tr>
                 ) : filteredSummaries.length === 0 ? (
                   <tr>
-                    <td colSpan={15} className="p-12 text-center text-gray-500 font-medium">{t.noRecords}</td>
+                    <td colSpan={14} className="p-12 text-center text-gray-500 font-medium">{t.noRecords}</td>
                   </tr>
                 ) : (
                   filteredSummaries.map((payroll) => {
@@ -855,7 +848,6 @@ export default function PayrollPage() {
                           <td className="p-3.5 text-right text-gray-800 font-bold font-mono">{payroll.totalWorkHours} sa</td>
                           <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.basePay.toLocaleString()} TL</td>
                           <td className="p-3.5 text-right text-purple-600 font-mono">{payroll.overtimePay.toLocaleString()} TL</td>
-                          <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.weeklyHolidayAllowance.toLocaleString()} TL</td>
                           <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.yolParasi.toLocaleString()} TL</td>
                           <td className="p-3.5 text-right text-orange-600 font-semibold font-mono">{payroll.holidayWorkHours > 0 ? `${payroll.holidayWorkHours} sa` : "0 sa"}</td>
                           <td className="p-3.5 text-right text-orange-600 font-bold font-mono">
@@ -881,7 +873,7 @@ export default function PayrollPage() {
                         {/* Detailed Daily Breakdown Accordion */}
                         {isExpanded && (
                           <tr>
-                            <td colSpan={15} className="p-0 bg-gray-50/80 border-y border-blue-100">
+                            <td colSpan={14} className="p-0 bg-gray-50/80 border-y border-blue-100">
                               <div className="p-5 space-y-3 animate-in fade-in duration-200">
                                 
                                 <div className="flex items-center justify-between">
@@ -892,7 +884,9 @@ export default function PayrollPage() {
                                     </h4>
                                   </div>
                                   <span className="text-xs text-gray-500 font-medium">
-                                    {lang === "tr" ? "Haftalık 45 saat esasına göre günlük mesai ayrımı" : "주 45시간 기준 일별 기본/연장 근로 상세"}
+                                    {lang === "tr" 
+                                      ? "Normal: %100 | Fazla Mesai (>45sa): %150 | Resmi Tatil: %200" 
+                                      : "기본: 100% | 연장근무(주 45h 초과): 150%(1.5배) | 공휴일: 200%(2배)"}
                                   </span>
                                 </div>
 
@@ -985,10 +979,8 @@ export default function PayrollPage() {
                                           {payroll.holidayWorkHours > 0 ? `${payroll.holidayWorkHours} sa` : "-"}
                                         </td>
                                         <td className="p-3 text-right font-mono">{payroll.yolParasi.toLocaleString()} TL</td>
-                                        <td className="p-3 text-xs text-blue-600 text-left">
-                                          {lang === "tr" 
-                                            ? `Haftalık Tatil: +${payroll.weeklyHolidayAllowance.toLocaleString()} TL` 
-                                            : `주휴수당: +${payroll.weeklyHolidayAllowance.toLocaleString()} TL`}
+                                        <td className="p-3 text-xs text-gray-500 text-left">
+                                          {lang === "tr" ? "Fazla mesai %150 / Tatil %200" : "연장 150% / 공휴일 200% 산정"}
                                         </td>
                                         <td className="p-3 text-right text-sm text-blue-600 font-mono bg-blue-50/40">
                                           {payroll.totalPay.toLocaleString()} TL
@@ -1021,7 +1013,6 @@ export default function PayrollPage() {
                     <td className="p-3.5 text-right font-mono text-sm">{overallStats.totalHours} sa</td>
                     <td className="p-3.5 text-right font-mono">{overallStats.totalBasePay.toLocaleString()} TL</td>
                     <td className="p-3.5 text-right text-purple-700 font-mono">{overallStats.totalOvertimePay.toLocaleString()} TL</td>
-                    <td className="p-3.5 text-right font-mono">{overallStats.totalWeeklyHoliday.toLocaleString()} TL</td>
                     <td className="p-3.5 text-right font-mono">{overallStats.totalYolParasi.toLocaleString()} TL</td>
                     <td className="p-3.5 text-right text-orange-600 font-mono">{overallStats.totalHolidayHours} sa</td>
                     <td className="p-3.5 text-right text-orange-600 font-mono">+{overallStats.totalHolidayPay.toLocaleString()} TL</td>
@@ -1069,7 +1060,6 @@ export default function PayrollPage() {
                       <div>{t.colTotalHours}: <span className="font-bold text-gray-900">{payroll.totalWorkHours} sa</span></div>
                       <div>{t.colBasePay}: <span className="font-semibold text-gray-800">{payroll.basePay.toLocaleString()} TL</span></div>
                       <div>{t.colOvertimePay}: <span className="font-semibold text-purple-700">{payroll.overtimePay.toLocaleString()} TL</span></div>
-                      <div>{t.colHolidayAllowance}: <span className="font-semibold text-gray-800">{payroll.weeklyHolidayAllowance.toLocaleString()} TL</span></div>
                       <div>{t.colYolParasi}: <span className="font-semibold text-gray-800">{payroll.yolParasi.toLocaleString()} TL</span></div>
                       
                       {payroll.holidayWorkHours > 0 && (

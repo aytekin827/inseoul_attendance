@@ -17,14 +17,14 @@ export interface DailyPayrollRecord {
   overtimeHours: number;        // 주 45h 초과 근무시간
   isOvertime: boolean;          // 45시간 초과 발생 여부
   overtimeStatus: 'normal' | 'overtime' | 'split'; // 정상(이내) / 초과 / 일부초과
-  isHoliday: boolean;           // 공식 국경일 여부
+  isHoliday: boolean;           // 공식 국경일 여부 (200% 지급 대상)
   notes: string;                // 메모 (보정 내역 등)
   yolParasi: number;            // 당일 교통비 (TL)
   hourlyRate: number;           // 적용 시급 (TL)
-  basePay: number;              // 당일 기본급 (normalHours * hourlyRate)
-  overtimePay: number;          // 당일 연장수당 (overtimeHours * hourlyRate)
-  holidayAdditionalPay: number; // 당일 국경일 추가수당
-  dailyTotalPay: number;        // 당일 총 합계
+  basePay: number;              // 당일 기본급 (normalHours * hourlyRate, 100%)
+  overtimePay: number;          // 당일 연장수당 (overtimeHours * hourlyRate * 1.5, 150%)
+  holidayAdditionalPay: number; // 당일 국경일 추가수당 (+100% 추가하여 총 200% 계산)
+  dailyTotalPay: number;        // 당일 총 합계 (기본급 + 연장수당 + 국경일추가수당 + 교통비)
 }
 
 export interface PayrollSummary {
@@ -35,13 +35,12 @@ export interface PayrollSummary {
   normalWorkHours: number;        // 주 45시간 이하 근무합계
   overtimeWorkHours: number;      // 주 45시간 초과 근무합계
   totalWorkHours: number;         // 총 근무 시간
-  basePay: number;                // 기본급 (normalWorkHours * hourly_rate)
-  overtimePay: number;            // 연장 수당 (overtimeWorkHours * hourly_rate)
-  weeklyHolidayAllowance: number; // 주휴수당 (Haftalık Tatil Ücreti)
+  basePay: number;                // 기본급 (normalWorkHours * hourlyRate, 100%)
+  overtimePay: number;            // 연장 수당 (overtimeWorkHours * hourlyRate * 1.5, 150%)
   yolParasi: number;              // 교통비 (일수 * yol_parasi)
   holidayWorkHours: number;       // 국경일 근무시간
-  holidayAdditionalPay: number;   // 국경일 추가수당 (평일 근무의 2배수 지급용 추가 1배수 계산)
-  totalPay: number;               // 최종 지급액
+  holidayAdditionalPay: number;   // 국경일 추가수당 (+100% 가산하여 총 200% 지급)
+  totalPay: number;               // 최종 지급액 (기본급 + 연장수당 + 국경일추가수당 + 교통비)
   workedDaysCount: number;        // 실제 근무 일수
   dailyRecords: DailyPayrollRecord[]; // 일별 상세 내역
 }
@@ -52,8 +51,17 @@ export interface PayrollSummary {
  * 2) 메모란에 'Resmi tatil' 문구 포함 여부 체크 (대소문자 무관)
  */
 export function isTurkeyPublicHoliday(dateStr: string, notes: string | null): boolean {
-  if (notes && notes.toLowerCase().includes("resmi tatil")) {
-    return true;
+  if (notes) {
+    const lower = notes.toLowerCase();
+    if (
+      lower.includes("resmi tatil") || 
+      lower.includes("bayram") || 
+      notes.includes("공휴일") || 
+      notes.includes("국경일") || 
+      notes.includes("명절")
+    ) {
+      return true;
+    }
   }
 
   const parts = dateStr.split("-"); // YYYY-MM-DD
@@ -134,26 +142,13 @@ export function calculateWorkHours(clockIn: string, clockOut: string | null, bre
 }
 
 /**
- * 주휴수당 계산 로직 (월 단위 약식 계산)
- * - 한 달(4.345주) 기준 주당 평균 근무시간이 15시간 이상일 경우 발생
- * - 법정 수식: (1주 총 근로시간 / 40시간) * 8시간 * 시급
- */
-export function calculateWeeklyHolidayAllowance(totalWorkHours: number, hourlyRate: number): number {
-  const avgWeeksPerMonth = 4.345;
-  const avgWeeklyHours = totalWorkHours / avgWeeksPerMonth;
-  
-  if (avgWeeklyHours >= 15) {
-    // 최대 40시간까지만 비례 인정
-    const weeklyHolidayHours = Math.min(avgWeeklyHours, 40) * (8 / 40);
-    // 한 달(4.345주) 치 주휴수당 총합 계산
-    return Math.floor(weeklyHolidayHours * avgWeeksPerMonth * hourlyRate);
-  }
-  
-  return 0;
-}
-
-/**
  * 직원 목록과 한 달 치 근태 기록을 입력받아 급여 정산 요약 리스트 및 일별 상세 내역을 반환합니다.
+ * 
+ * [급여 산정 규칙]
+ * 1. 기본 근무 (주 45시간 이내): 실 근무시간 × 시급 (100%)
+ * 2. 연장 근무 (주 45시간 초과): 초과 근무시간 × 시급 × 150% (1.5배)
+ * 3. 공휴일/국경일 (Resmi Tatil): 공휴일 근무시간 × 시급 × 200% (기본 100%에 추가 100% 가산)
+ * 4. 교통비 (Yol Parası): 실제 근무 일수 × 1일 교통비 (직원 설정액 또는 기본 100 TL)
  */
 export function calculateMonthlyPayroll(employees: Employee[], records: AttendanceRecord[]): PayrollSummary[] {
   const summaries: PayrollSummary[] = [];
@@ -210,11 +205,13 @@ export function calculateMonthlyPayroll(employees: Employee[], records: Attendan
         workedDatesSet.add(record.work_date);
       }
 
-      // 국경일 판정
+      // 국경일 판정 (공휴일 근무는 기본 100% + 추가 100% = 총 200% 지급)
       const isHoliday = isTurkeyPublicHoliday(record.work_date, record.notes);
       const holidayAdditionalPay = isHoliday ? Math.floor(workHours * hourlyRate) : 0;
+      
+      // 기본급 (100%) 및 연장수당 (150% = 1.5배)
       const basePay = Math.floor(normalHours * hourlyRate);
-      const overtimePay = Math.floor(overtimeHours * hourlyRate);
+      const overtimePay = Math.floor(overtimeHours * hourlyRate * 1.5);
       const dailyTotalPay = basePay + overtimePay + holidayAdditionalPay + dailyYolParasi;
 
       const clockInTime = formatTurkeyTime(record.clock_in);
@@ -252,10 +249,16 @@ export function calculateMonthlyPayroll(employees: Employee[], records: Attendan
     let normalWorkHours = 0;
     let overtimeWorkHours = 0;
     let holidayWorkHours = 0;
+    let basePay = 0;
+    let overtimePay = 0;
+    let holidayAdditionalPay = 0;
 
     dailyRecords.forEach(dr => {
       normalWorkHours += dr.normalHours;
       overtimeWorkHours += dr.overtimeHours;
+      basePay += dr.basePay;
+      overtimePay += dr.overtimePay;
+      holidayAdditionalPay += dr.holidayAdditionalPay;
       if (dr.isHoliday) {
         holidayWorkHours += dr.workHours;
       }
@@ -266,12 +269,8 @@ export function calculateMonthlyPayroll(employees: Employee[], records: Attendan
     holidayWorkHours = Number(holidayWorkHours.toFixed(2));
     const totalWorkHours = Number((normalWorkHours + overtimeWorkHours).toFixed(2));
 
-    const basePay = Math.floor(normalWorkHours * hourlyRate);
-    const overtimePay = Math.floor(overtimeWorkHours * hourlyRate);
-    const weeklyHolidayAllowance = calculateWeeklyHolidayAllowance(totalWorkHours, hourlyRate);
     const yolParasi = workedDatesSet.size * yolParasiRate;
-    const holidayAdditionalPay = Math.floor(holidayWorkHours * hourlyRate);
-    const totalPay = basePay + overtimePay + weeklyHolidayAllowance + yolParasi + holidayAdditionalPay;
+    const totalPay = basePay + overtimePay + holidayAdditionalPay + yolParasi;
 
     summaries.push({
       employeeId: emp.id,
@@ -283,7 +282,6 @@ export function calculateMonthlyPayroll(employees: Employee[], records: Attendan
       totalWorkHours,
       basePay,
       overtimePay,
-      weeklyHolidayAllowance,
       yolParasi,
       holidayWorkHours,
       holidayAdditionalPay,
@@ -295,4 +293,3 @@ export function calculateMonthlyPayroll(employees: Employee[], records: Attendan
 
   return summaries;
 }
-
