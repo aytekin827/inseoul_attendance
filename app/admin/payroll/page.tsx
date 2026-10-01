@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Calculator, 
   Calendar, 
@@ -55,6 +55,7 @@ const translations = {
     colName: "Personel Adı",
     colHourlyRate: "Saatlik Ücret",
     colYolParasiRate: "Günlük Yol",
+    colWorkedDays: "Çalışılan Gün",
     colNormalHours: "Normal Mesai (≤45sa)",
     colOvertimeHours: "Fazla Mesai (>45sa)",
     colTotalHours: "Toplam Süre",
@@ -65,7 +66,6 @@ const translations = {
     colHolidayHours: "Resmi Tatil Çalışma",
     colHolidayPay: "Resmi Tatil Ek Ödeme",
     colTotalPay: "Toplam Ödenecek",
-    colWorkedDays: "Çalışılan Gün",
     colAction: "Detay",
     
     // Daily Table Columns
@@ -125,17 +125,17 @@ const translations = {
     colName: "직원 이름",
     colHourlyRate: "시급",
     colYolParasiRate: "1일 교통비",
-    colNormalHours: "기본 근무 (주 45h 이하)",
-    colOvertimeHours: "연장 근무 (주 45h 초과)",
+    colWorkedDays: "근무 일수",
+    colNormalHours: "기본 근무 (≤45h)",
+    colOvertimeHours: "연장 근무 (>45h)",
     colTotalHours: "총 근무시간",
     colBasePay: "기본급",
     colOvertimePay: "연장 근로 수당",
     colHolidayAllowance: "주휴수당",
     colYolParasi: "교통비 (욜파라)",
     colHolidayHours: "국경일 근무시간",
-    colHolidayPay: "국경일 추가 수당 (1배)",
+    colHolidayPay: "국경일 추가 수당",
     colTotalPay: "최종 지급액",
-    colWorkedDays: "근무 일수",
     colAction: "상세",
     
     // Daily Table Columns
@@ -263,20 +263,44 @@ export default function PayrollPage() {
   // 전체 통계 계산
   const overallStats = useMemo(() => {
     const totalStaff = payrollSummaries.length;
+    let totalWorkedDays = 0;
+    let totalNormalHours = 0;
+    let totalOvertimeHours = 0;
     let totalHours = 0;
-    let totalOvertime = 0;
+    let totalBasePay = 0;
+    let totalOvertimePay = 0;
+    let totalWeeklyHoliday = 0;
+    let totalYolParasi = 0;
+    let totalHolidayHours = 0;
+    let totalHolidayPay = 0;
     let totalPayout = 0;
 
     payrollSummaries.forEach(s => {
+      totalWorkedDays += s.workedDaysCount;
+      totalNormalHours += s.normalWorkHours;
+      totalOvertimeHours += s.overtimeWorkHours;
       totalHours += s.totalWorkHours;
-      totalOvertime += s.overtimeWorkHours;
+      totalBasePay += s.basePay;
+      totalOvertimePay += s.overtimePay;
+      totalWeeklyHoliday += s.weeklyHolidayAllowance;
+      totalYolParasi += s.yolParasi;
+      totalHolidayHours += s.holidayWorkHours;
+      totalHolidayPay += s.holidayAdditionalPay;
       totalPayout += s.totalPay;
     });
 
     return {
       totalStaff,
+      totalWorkedDays,
+      totalNormalHours: Number(totalNormalHours.toFixed(2)),
+      totalOvertimeHours: Number(totalOvertimeHours.toFixed(2)),
       totalHours: Number(totalHours.toFixed(2)),
-      totalOvertime: Number(totalOvertime.toFixed(2)),
+      totalBasePay,
+      totalOvertimePay,
+      totalWeeklyHoliday,
+      totalYolParasi,
+      totalHolidayHours: Number(totalHolidayHours.toFixed(2)),
+      totalHolidayPay,
       totalPayout
     };
   }, [payrollSummaries]);
@@ -724,7 +748,7 @@ export default function PayrollPage() {
             </div>
             <div>
               <p className="text-xs text-gray-500 font-medium">{t.statsTotalOvertime}</p>
-              <h3 className="text-xl font-bold text-purple-700">{overallStats.totalOvertime.toLocaleString()} <span className="text-xs font-normal text-gray-400">sa</span></h3>
+              <h3 className="text-xl font-bold text-purple-700">{overallStats.totalOvertimeHours.toLocaleString()} <span className="text-xs font-normal text-gray-400">sa</span></h3>
             </div>
           </div>
 
@@ -776,76 +800,78 @@ export default function PayrollPage() {
 
           {/* Desktop Table View */}
           <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full text-left min-w-[1250px]">
+            <table className="w-full text-left min-w-[1300px]">
               <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr>
-                  <th className="p-4 text-xs font-bold text-gray-600">{t.colName}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-center">{t.colWorkedDays}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-right">{t.colNormalHours}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-right">{t.colOvertimeHours}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-right">{t.colTotalHours}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-right">{t.colBasePay}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-right">{t.colOvertimePay}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-right">{t.colHolidayAllowance}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-right">{t.colYolParasi}</th>
-                  <th className="p-4 text-xs font-bold text-orange-600 text-right">{t.colHolidayHours}</th>
-                  <th className="p-4 text-xs font-bold text-orange-600 text-right">{t.colHolidayPay}</th>
-                  <th className="p-4 text-xs font-bold text-gray-800 text-right">{t.colTotalPay}</th>
-                  <th className="p-4 text-xs font-bold text-gray-600 text-center">{t.colAction}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-left">{t.colName}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colHourlyRate}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colYolParasiRate}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-center">{t.colWorkedDays}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colNormalHours}</th>
+                  <th className="p-3.5 text-xs font-bold text-purple-700 text-right">{t.colOvertimeHours}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-800 text-right">{t.colTotalHours}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colBasePay}</th>
+                  <th className="p-3.5 text-xs font-bold text-purple-700 text-right">{t.colOvertimePay}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colHolidayAllowance}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-right">{t.colYolParasi}</th>
+                  <th className="p-3.5 text-xs font-bold text-orange-600 text-right">{t.colHolidayHours}</th>
+                  <th className="p-3.5 text-xs font-bold text-orange-600 text-right">{t.colHolidayPay}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-800 text-right">{t.colTotalPay}</th>
+                  <th className="p-3.5 text-xs font-bold text-gray-600 text-center">{t.colAction}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={13} className="p-12 text-center text-gray-500 font-medium">{t.calculating}</td>
+                    <td colSpan={15} className="p-12 text-center text-gray-500 font-medium">{t.calculating}</td>
                   </tr>
                 ) : filteredSummaries.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="p-12 text-center text-gray-500 font-medium">{t.noRecords}</td>
+                    <td colSpan={15} className="p-12 text-center text-gray-500 font-medium">{t.noRecords}</td>
                   </tr>
                 ) : (
                   filteredSummaries.map((payroll) => {
                     const isExpanded = expandedEmployeeIds.has(payroll.employeeId);
                     return (
-                      <tbody key={payroll.employeeId} className="border-b border-gray-100">
+                      <React.Fragment key={payroll.employeeId}>
                         {/* Summary Row */}
                         <tr 
                           onClick={() => toggleEmployeeDetails(payroll.employeeId)}
                           className={`hover:bg-blue-50/30 transition-colors cursor-pointer ${isExpanded ? "bg-blue-50/20" : ""}`}
                         >
-                          <td className="p-4 font-bold text-gray-800 flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shadow-sm">
-                              {payroll.employeeName.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="font-bold text-gray-800">{payroll.employeeName}</div>
-                              <div className="text-[11px] text-gray-400 font-normal">
-                                {t.colHourlyRate}: {payroll.hourlyRate} TL | {t.colYolParasiRate}: {payroll.yolParasiRate} TL
+                          <td className="p-3.5 font-bold text-gray-800 text-left">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shadow-sm flex-shrink-0">
+                                {payroll.employeeName.charAt(0)}
                               </div>
+                              <span className="font-bold text-gray-800">{payroll.employeeName}</span>
                             </div>
                           </td>
-                          <td className="p-4 text-center text-gray-600 font-semibold">{payroll.workedDaysCount} {lang === "tr" ? "gün" : "일"}</td>
-                          <td className="p-4 text-right text-gray-600 font-medium font-mono">{payroll.normalWorkHours} sa</td>
-                          <td className="p-4 text-right text-purple-600 font-semibold font-mono">{payroll.overtimeWorkHours > 0 ? `${payroll.overtimeWorkHours} sa` : "0 sa"}</td>
-                          <td className="p-4 text-right text-gray-800 font-bold font-mono">{payroll.totalWorkHours} sa</td>
-                          <td className="p-4 text-right text-gray-600 font-mono">{payroll.basePay.toLocaleString()} TL</td>
-                          <td className="p-4 text-right text-purple-600 font-mono">{payroll.overtimePay.toLocaleString()} TL</td>
-                          <td className="p-4 text-right text-gray-600 font-mono">{payroll.weeklyHolidayAllowance.toLocaleString()} TL</td>
-                          <td className="p-4 text-right text-gray-600 font-mono">{payroll.yolParasi.toLocaleString()} TL</td>
-                          <td className="p-4 text-right text-orange-600 font-semibold font-mono">{payroll.holidayWorkHours > 0 ? `${payroll.holidayWorkHours} sa` : "0 sa"}</td>
-                          <td className="p-4 text-right text-orange-600 font-bold font-mono">
+                          <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.hourlyRate} TL</td>
+                          <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.yolParasiRate} TL</td>
+                          <td className="p-3.5 text-center text-gray-600 font-semibold">{payroll.workedDaysCount} {lang === "tr" ? "gün" : "일"}</td>
+                          <td className="p-3.5 text-right text-gray-600 font-medium font-mono">{payroll.normalWorkHours} sa</td>
+                          <td className="p-3.5 text-right text-purple-600 font-semibold font-mono">{payroll.overtimeWorkHours > 0 ? `${payroll.overtimeWorkHours} sa` : "0 sa"}</td>
+                          <td className="p-3.5 text-right text-gray-800 font-bold font-mono">{payroll.totalWorkHours} sa</td>
+                          <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.basePay.toLocaleString()} TL</td>
+                          <td className="p-3.5 text-right text-purple-600 font-mono">{payroll.overtimePay.toLocaleString()} TL</td>
+                          <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.weeklyHolidayAllowance.toLocaleString()} TL</td>
+                          <td className="p-3.5 text-right text-gray-600 font-mono">{payroll.yolParasi.toLocaleString()} TL</td>
+                          <td className="p-3.5 text-right text-orange-600 font-semibold font-mono">{payroll.holidayWorkHours > 0 ? `${payroll.holidayWorkHours} sa` : "0 sa"}</td>
+                          <td className="p-3.5 text-right text-orange-600 font-bold font-mono">
                             {payroll.holidayAdditionalPay > 0 ? `+${payroll.holidayAdditionalPay.toLocaleString()} TL` : "0 TL"}
                           </td>
-                          <td className="p-4 text-right font-bold text-base text-blue-600 font-mono bg-blue-50/30">
+                          <td className="p-3.5 text-right font-bold text-base text-blue-600 font-mono bg-blue-50/30">
                             {payroll.totalPay.toLocaleString()} TL
                           </td>
-                          <td className="p-4 text-center">
+                          <td className="p-3.5 text-center">
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleEmployeeDetails(payroll.employeeId);
                               }}
                               className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-200"
+                              title={isExpanded ? t.hideDetails : t.viewDetails}
                             >
                               {isExpanded ? <ChevronUp className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4" />}
                             </button>
@@ -855,8 +881,8 @@ export default function PayrollPage() {
                         {/* Detailed Daily Breakdown Accordion */}
                         {isExpanded && (
                           <tr>
-                            <td colSpan={13} className="p-0 bg-gray-50/80 border-y border-blue-100">
-                              <div className="p-6 space-y-3 animate-in fade-in duration-200">
+                            <td colSpan={15} className="p-0 bg-gray-50/80 border-y border-blue-100">
+                              <div className="p-5 space-y-3 animate-in fade-in duration-200">
                                 
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -874,7 +900,7 @@ export default function PayrollPage() {
                                   <table className="w-full text-xs text-left">
                                     <thead className="bg-gray-100/70 border-b border-gray-200 text-gray-600">
                                       <tr>
-                                        <th className="p-3 font-bold">{t.colDate}</th>
+                                        <th className="p-3 font-bold text-left">{t.colDate}</th>
                                         <th className="p-3 font-bold text-center">{t.colDay}</th>
                                         <th className="p-3 font-bold text-center">{t.colWeek}</th>
                                         <th className="p-3 font-bold text-center">{t.colClockIn}</th>
@@ -886,14 +912,14 @@ export default function PayrollPage() {
                                         <th className="p-3 font-bold text-center">{t.colOvertimeStatus}</th>
                                         <th className="p-3 font-bold text-center">{t.colIsHoliday}</th>
                                         <th className="p-3 font-bold text-right">{t.colDailyYolParasi}</th>
-                                        <th className="p-3 font-bold">{t.colNotes}</th>
+                                        <th className="p-3 font-bold text-left">{t.colNotes}</th>
                                         <th className="p-3 font-bold text-right">{t.colDailyTotal}</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                       {payroll.dailyRecords.map((record) => (
                                         <tr key={record.recordId} className="hover:bg-blue-50/20">
-                                          <td className="p-3 font-semibold text-gray-800 font-mono">{record.workDate}</td>
+                                          <td className="p-3 font-semibold text-gray-800 font-mono text-left">{record.workDate}</td>
                                           <td className="p-3 text-center text-gray-600 font-medium">
                                             {lang === "ko" ? record.dayOfWeekKo : record.dayOfWeekTr}
                                           </td>
@@ -935,7 +961,7 @@ export default function PayrollPage() {
                                           <td className="p-3 text-right text-gray-700 font-mono">
                                             {record.yolParasi > 0 ? `${record.yolParasi} TL` : "-"}
                                           </td>
-                                          <td className="p-3 text-gray-500 max-w-xs truncate text-[11px]" title={record.notes}>
+                                          <td className="p-3 text-gray-500 max-w-xs truncate text-[11px] text-left" title={record.notes}>
                                             {record.notes || "-"}
                                           </td>
                                           <td className="p-3 text-right font-bold text-blue-600 font-mono bg-blue-50/10">
@@ -959,7 +985,7 @@ export default function PayrollPage() {
                                           {payroll.holidayWorkHours > 0 ? `${payroll.holidayWorkHours} sa` : "-"}
                                         </td>
                                         <td className="p-3 text-right font-mono">{payroll.yolParasi.toLocaleString()} TL</td>
-                                        <td className="p-3 text-xs text-blue-600">
+                                        <td className="p-3 text-xs text-blue-600 text-left">
                                           {lang === "tr" 
                                             ? `Haftalık Tatil: +${payroll.weeklyHolidayAllowance.toLocaleString()} TL` 
                                             : `주휴수당: +${payroll.weeklyHolidayAllowance.toLocaleString()} TL`}
@@ -976,7 +1002,7 @@ export default function PayrollPage() {
                             </td>
                           </tr>
                         )}
-                      </tbody>
+                      </React.Fragment>
                     );
                   })
                 )}
@@ -986,36 +1012,20 @@ export default function PayrollPage() {
               {filteredSummaries.length > 0 && (
                 <tfoot className="bg-gray-100/80 border-t-2 border-gray-200 font-bold text-gray-800 text-xs">
                   <tr>
-                    <td className="p-4 font-extrabold text-sm">{t.grandTotal}</td>
-                    <td className="p-4 text-center font-bold">{overallStats.totalStaff} {lang === "tr" ? "kişi" : "명"}</td>
-                    <td className="p-4 text-right font-mono">
-                      {Number(filteredSummaries.reduce((acc, s) => acc + s.normalWorkHours, 0).toFixed(2))} sa
-                    </td>
-                    <td className="p-4 text-right text-purple-700 font-mono">
-                      {overallStats.totalOvertime} sa
-                    </td>
-                    <td className="p-4 text-right font-mono text-sm">
-                      {overallStats.totalHours} sa
-                    </td>
-                    <td className="p-4 text-right font-mono">
-                      {filteredSummaries.reduce((acc, s) => acc + s.basePay, 0).toLocaleString()} TL
-                    </td>
-                    <td className="p-4 text-right text-purple-700 font-mono">
-                      {filteredSummaries.reduce((acc, s) => acc + s.overtimePay, 0).toLocaleString()} TL
-                    </td>
-                    <td className="p-4 text-right font-mono">
-                      {filteredSummaries.reduce((acc, s) => acc + s.weeklyHolidayAllowance, 0).toLocaleString()} TL
-                    </td>
-                    <td className="p-4 text-right font-mono">
-                      {filteredSummaries.reduce((acc, s) => acc + s.yolParasi, 0).toLocaleString()} TL
-                    </td>
-                    <td className="p-4 text-right text-orange-600 font-mono">
-                      {Number(filteredSummaries.reduce((acc, s) => acc + s.holidayWorkHours, 0).toFixed(2))} sa
-                    </td>
-                    <td className="p-4 text-right text-orange-600 font-mono">
-                      +{filteredSummaries.reduce((acc, s) => acc + s.holidayAdditionalPay, 0).toLocaleString()} TL
-                    </td>
-                    <td className="p-4 text-right font-extrabold text-base text-blue-700 font-mono bg-blue-100/50">
+                    <td className="p-3.5 font-extrabold text-sm text-left">{t.grandTotal}</td>
+                    <td className="p-3.5 text-right font-mono">-</td>
+                    <td className="p-3.5 text-right font-mono">-</td>
+                    <td className="p-3.5 text-center font-bold">{overallStats.totalWorkedDays} {lang === "tr" ? "gün" : "일"}</td>
+                    <td className="p-3.5 text-right font-mono">{overallStats.totalNormalHours} sa</td>
+                    <td className="p-3.5 text-right text-purple-700 font-mono">{overallStats.totalOvertimeHours} sa</td>
+                    <td className="p-3.5 text-right font-mono text-sm">{overallStats.totalHours} sa</td>
+                    <td className="p-3.5 text-right font-mono">{overallStats.totalBasePay.toLocaleString()} TL</td>
+                    <td className="p-3.5 text-right text-purple-700 font-mono">{overallStats.totalOvertimePay.toLocaleString()} TL</td>
+                    <td className="p-3.5 text-right font-mono">{overallStats.totalWeeklyHoliday.toLocaleString()} TL</td>
+                    <td className="p-3.5 text-right font-mono">{overallStats.totalYolParasi.toLocaleString()} TL</td>
+                    <td className="p-3.5 text-right text-orange-600 font-mono">{overallStats.totalHolidayHours} sa</td>
+                    <td className="p-3.5 text-right text-orange-600 font-mono">+{overallStats.totalHolidayPay.toLocaleString()} TL</td>
+                    <td className="p-3.5 text-right font-extrabold text-base text-blue-700 font-mono bg-blue-100/50">
                       {overallStats.totalPayout.toLocaleString()} TL
                     </td>
                     <td></td>
