@@ -1,8 +1,37 @@
 import type { AttendanceRecord, Employee } from "@/types";
+import { formatTurkeyTime } from "@/lib/time";
+
+export interface DailyPayrollRecord {
+  recordId: string;
+  workDate: string;             // YYYY-MM-DD
+  dayOfWeekKo: string;          // 월, 화, 수, 목, 금, 토, 일
+  dayOfWeekTr: string;          // Pzt, Sal, Çar, Per, Cum, Cmt, Paz
+  weekKey: string;              // e.g. "2026-W35"
+  clockIn: string;              // ISO
+  clockInTime: string;          // "HH:mm" (Turkey time)
+  clockOut: string | null;      // ISO
+  clockOutTime: string;         // "HH:mm" (Turkey time)
+  breakMinutes: number;         // 분 (mola)
+  workHours: number;            // 실 근무시간 (시간)
+  normalHours: number;          // 주 45h 이내 근무시간
+  overtimeHours: number;        // 주 45h 초과 근무시간
+  isOvertime: boolean;          // 45시간 초과 발생 여부
+  overtimeStatus: 'normal' | 'overtime' | 'split'; // 정상(이내) / 초과 / 일부초과
+  isHoliday: boolean;           // 공식 국경일 여부
+  notes: string;                // 메모 (보정 내역 등)
+  yolParasi: number;            // 당일 교통비 (TL)
+  hourlyRate: number;           // 적용 시급 (TL)
+  basePay: number;              // 당일 기본급 (normalHours * hourlyRate)
+  overtimePay: number;          // 당일 연장수당 (overtimeHours * hourlyRate)
+  holidayAdditionalPay: number; // 당일 국경일 추가수당
+  dailyTotalPay: number;        // 당일 총 합계
+}
 
 export interface PayrollSummary {
   employeeId: string;
   employeeName: string;
+  hourlyRate: number;             // 시급
+  yolParasiRate: number;          // 1일 교통비 단가
   normalWorkHours: number;        // 주 45시간 이하 근무합계
   overtimeWorkHours: number;      // 주 45시간 초과 근무합계
   totalWorkHours: number;         // 총 근무 시간
@@ -14,6 +43,7 @@ export interface PayrollSummary {
   holidayAdditionalPay: number;   // 국경일 추가수당 (평일 근무의 2배수 지급용 추가 1배수 계산)
   totalPay: number;               // 최종 지급액
   workedDaysCount: number;        // 실제 근무 일수
+  dailyRecords: DailyPayrollRecord[]; // 일별 상세 내역
 }
 
 /**
@@ -47,11 +77,37 @@ export function isTurkeyPublicHoliday(dateStr: string, notes: string | null): bo
 }
 
 /**
+ * 날짜의 요일을 반환합니다 (KO / TR)
+ */
+export function getDayOfWeek(dateStr: string): { ko: string; tr: string } {
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return { ko: '-', tr: '-' };
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const date = new Date(Date.UTC(y, m, d));
+  const dayIdx = date.getUTCDay(); // 0 = Sun, 1 = Mon, ...
+  
+  const koDays = ["일", "월", "화", "수", "목", "금", "토"];
+  const trDays = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
+  
+  return {
+    ko: koDays[dayIdx] || '-',
+    tr: trDays[dayIdx] || '-'
+  };
+}
+
+/**
  * 날짜의 ISO 주차 키를 구합니다 (예: 2026-W35)
  */
 export function getISOWeekKey(dateStr: string): string {
-  const date = new Date(dateStr);
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return 'Unknown';
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  
+  const d = new Date(Date.UTC(year, month, day));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -97,72 +153,131 @@ export function calculateWeeklyHolidayAllowance(totalWorkHours: number, hourlyRa
 }
 
 /**
- * 직원 목록과 한 달 치 근태 기록을 입력받아 급여 정산 요약 리스트를 반환합니다.
+ * 직원 목록과 한 달 치 근태 기록을 입력받아 급여 정산 요약 리스트 및 일별 상세 내역을 반환합니다.
  */
 export function calculateMonthlyPayroll(employees: Employee[], records: AttendanceRecord[]): PayrollSummary[] {
   const summaries: PayrollSummary[] = [];
 
   employees.forEach(emp => {
-    // 해당 직원의 완료된 기록 조회
-    const empRecords = records.filter(r => r.employee_id === emp.id && r.status === 'completed');
+    // 해당 직원의 완료된 기록 조회 및 날짜/시간순 오름차순 정렬
+    const empRecords = records
+      .filter(r => r.employee_id === emp.id && r.status === 'completed')
+      .sort((a, b) => {
+        if (a.work_date !== b.work_date) {
+          return a.work_date.localeCompare(b.work_date);
+        }
+        return new Date(a.clock_in).getTime() - new Date(b.clock_in).getTime();
+      });
     
-    // 1. 주차별 근무시간 분할 연산 (주 45시간 이하/초과 구분)
-    const weeklyHoursMap: { [weekKey: string]: number } = {};
-    let workedDaysCount = new Set<string>(); // 실제 출근일 계산
-    let holidayWorkHours = 0; // 국경일 총 근무시간
+    const hourlyRate = emp.hourly_rate || 0;
+    const yolParasiRate = emp.yol_parasi ?? 100;
+
+    // 주차별 누적 근무시간 추적용 맵
+    const weeklyHoursAccumulator: { [weekKey: string]: number } = {};
+    const workedDatesSet = new Set<string>();
+    const dailyRecords: DailyPayrollRecord[] = [];
 
     empRecords.forEach(record => {
-      workedDaysCount.add(record.work_date);
-      
-      const hours = calculateWorkHours(record.clock_in, record.clock_out, record.break_minutes);
-      
-      // 주별 합산
+      const workHours = calculateWorkHours(record.clock_in, record.clock_out, record.break_minutes);
       const weekKey = getISOWeekKey(record.work_date);
-      weeklyHoursMap[weekKey] = (weeklyHoursMap[weekKey] || 0) + hours;
+      const prevWeekHours = weeklyHoursAccumulator[weekKey] || 0;
 
-      // 국경일 근무시간 판정
-      if (isTurkeyPublicHoliday(record.work_date, record.notes)) {
-        holidayWorkHours += hours;
+      let normalHours = 0;
+      let overtimeHours = 0;
+      let overtimeStatus: 'normal' | 'overtime' | 'split' = 'normal';
+
+      // 45시간 이내 / 초과 분할 판정
+      if (prevWeekHours >= 45) {
+        normalHours = 0;
+        overtimeHours = workHours;
+        overtimeStatus = 'overtime';
+      } else if (prevWeekHours + workHours <= 45) {
+        normalHours = workHours;
+        overtimeHours = 0;
+        overtimeStatus = 'normal';
+      } else {
+        normalHours = Number((45 - prevWeekHours).toFixed(2));
+        overtimeHours = Number((workHours - normalHours).toFixed(2));
+        overtimeStatus = 'split';
       }
+
+      weeklyHoursAccumulator[weekKey] = prevWeekHours + workHours;
+
+      // 당일 교통비: 하루에 첫 근무 건에만 지급 (중복 합산 방지)
+      let dailyYolParasi = 0;
+      if (!workedDatesSet.has(record.work_date)) {
+        dailyYolParasi = yolParasiRate;
+        workedDatesSet.add(record.work_date);
+      }
+
+      // 국경일 판정
+      const isHoliday = isTurkeyPublicHoliday(record.work_date, record.notes);
+      const holidayAdditionalPay = isHoliday ? Math.floor(workHours * hourlyRate) : 0;
+      const basePay = Math.floor(normalHours * hourlyRate);
+      const overtimePay = Math.floor(overtimeHours * hourlyRate);
+      const dailyTotalPay = basePay + overtimePay + holidayAdditionalPay + dailyYolParasi;
+
+      const clockInTime = formatTurkeyTime(record.clock_in);
+      const clockOutTime = record.clock_out ? formatTurkeyTime(record.clock_out) : '-';
+      const days = getDayOfWeek(record.work_date);
+
+      dailyRecords.push({
+        recordId: record.id,
+        workDate: record.work_date,
+        dayOfWeekKo: days.ko,
+        dayOfWeekTr: days.tr,
+        weekKey,
+        clockIn: record.clock_in,
+        clockInTime,
+        clockOut: record.clock_out,
+        clockOutTime,
+        breakMinutes: record.break_minutes || 0,
+        workHours,
+        normalHours,
+        overtimeHours,
+        isOvertime: overtimeHours > 0,
+        overtimeStatus,
+        isHoliday,
+        notes: record.notes || '',
+        yolParasi: dailyYolParasi,
+        hourlyRate,
+        basePay,
+        overtimePay,
+        holidayAdditionalPay,
+        dailyTotalPay
+      });
     });
 
+    // 전체 근무시간 및 수당 합산
     let normalWorkHours = 0;
     let overtimeWorkHours = 0;
+    let holidayWorkHours = 0;
 
-    Object.values(weeklyHoursMap).forEach(hours => {
-      if (hours > 45) {
-        normalWorkHours += 45;
-        overtimeWorkHours += (hours - 45);
-      } else {
-        normalWorkHours += hours;
+    dailyRecords.forEach(dr => {
+      normalWorkHours += dr.normalHours;
+      overtimeWorkHours += dr.overtimeHours;
+      if (dr.isHoliday) {
+        holidayWorkHours += dr.workHours;
       }
     });
 
-    // 소수점 보정
     normalWorkHours = Number(normalWorkHours.toFixed(2));
     overtimeWorkHours = Number(overtimeWorkHours.toFixed(2));
+    holidayWorkHours = Number(holidayWorkHours.toFixed(2));
     const totalWorkHours = Number((normalWorkHours + overtimeWorkHours).toFixed(2));
 
-    // 급여 계산
-    const basePay = Math.floor(normalWorkHours * emp.hourly_rate);
-    const overtimePay = Math.floor(overtimeWorkHours * emp.hourly_rate);
-    
-    // 주휴수당 (전체 근무시간 기준 계산)
-    const weeklyHolidayAllowance = calculateWeeklyHolidayAllowance(totalWorkHours, emp.hourly_rate);
-
-    // 욜파라 (교통비): 근무한 일수 * 일일 교통비 (직원 설정 교통비가 없으면 기본 100 TL)
-    const yolParasiRate = emp.yol_parasi ?? 100;
-    const yolParasi = workedDaysCount.size * yolParasiRate;
-
-    // 국경일 추가 수당 (평일 근무의 2배수 급여 지급을 위해 추가 1배수 지급)
-    const holidayAdditionalPay = Math.floor(holidayWorkHours * emp.hourly_rate);
-
-    // 최종 급여 총합
+    const basePay = Math.floor(normalWorkHours * hourlyRate);
+    const overtimePay = Math.floor(overtimeWorkHours * hourlyRate);
+    const weeklyHolidayAllowance = calculateWeeklyHolidayAllowance(totalWorkHours, hourlyRate);
+    const yolParasi = workedDatesSet.size * yolParasiRate;
+    const holidayAdditionalPay = Math.floor(holidayWorkHours * hourlyRate);
     const totalPay = basePay + overtimePay + weeklyHolidayAllowance + yolParasi + holidayAdditionalPay;
 
     summaries.push({
       employeeId: emp.id,
       employeeName: emp.name,
+      hourlyRate,
+      yolParasiRate,
       normalWorkHours,
       overtimeWorkHours,
       totalWorkHours,
@@ -170,12 +285,14 @@ export function calculateMonthlyPayroll(employees: Employee[], records: Attendan
       overtimePay,
       weeklyHolidayAllowance,
       yolParasi,
-      holidayWorkHours: Number(holidayWorkHours.toFixed(2)),
+      holidayWorkHours,
       holidayAdditionalPay,
       totalPay,
-      workedDaysCount: workedDaysCount.size
+      workedDaysCount: workedDatesSet.size,
+      dailyRecords
     });
   });
 
   return summaries;
 }
+
