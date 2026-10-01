@@ -112,15 +112,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Zaten giriş yapılmış ve çalışıyor.' }, { status: 400 });
       }
 
-      // [보정 규칙] 오전조 출근 9:00: 9시 전에 와서 찍더라도 9시로 기록되도록 처리 (새벽 5시 ~ 아침 9시 사이 대상)
+      // [보정 규칙] 출근 시간 보정
+      // - 오전조: 05:00 ~ 08:59 → 09:00으로 보정
+      // - 오후조: 13:00 ~ 15:29 → 15:30으로 보정
       const hours = getTurkeyHours(now);
+      const minutes = getTurkeyMinutes(now);
       let clockInIso = now.toISOString();
       let notesText = null;
       let isAdjusted = false;
+      let adjustedInLabel = '';
 
       if (hours >= 5 && hours < 9) {
-        // 터키 시간 09:00:00 (UTC+3) 기준으로 정확히 저장
+        // 오전조 출근 보정: 9시 이전 → 09:00
         clockInIso = new Date(`${today}T09:00:00+03:00`).toISOString();
+        adjustedInLabel = '09:00:00 (오전조 기준 적용)';
+        notesText = `[Giriş 보정] 실제 입력 시각: ${actualTimeStr}`;
+        isAdjusted = true;
+      } else if (hours >= 13 && (hours < 15 || (hours === 15 && minutes < 30))) {
+        // 오후조 출근 보정: 13:00~15:29 → 15:30
+        clockInIso = new Date(`${today}T15:30:00+03:00`).toISOString();
+        adjustedInLabel = '15:30:00 (오후조 기준 적용)';
         notesText = `[Giriş 보정] 실제 입력 시각: ${actualTimeStr}`;
         isAdjusted = true;
       }
@@ -145,7 +156,7 @@ export async function POST(request: Request) {
       }
 
       // 텔레그램 알림 발송
-      const alertMsg = `🔔 <b>[근태 알림 / Giriş Bildirimi]</b>\n🟢 <b>출근 등록 (Giriş Yapıldı)</b>\n\n• <b>직원명 (Personel):</b> ${employee.name}\n• <b>날짜 (Tarih):</b> ${today}\n• <b>실제 등록 시간 (Gerçek Giriş):</b> ${actualTimeStr}${isAdjusted ? `\n• <b>보정 시간 (Düzeltilen Saat):</b> 09:00:00 (오전조 기준 적용)` : ''}`;
+      const alertMsg = `🔔 <b>[근태 알림 / Giriş Bildirimi]</b>\n🟢 <b>출근 등록 (Giriş Yapıldı)</b>\n\n• <b>직원명 (Personel):</b> ${employee.name}\n• <b>날짜 (Tarih):</b> ${today}\n• <b>실제 등록 시간 (Gerçek Giriş):</b> ${actualTimeStr}${isAdjusted ? `\n• <b>보정 시간 (Düzeltilen Saat):</b> ${adjustedInLabel}` : ''}`;
       await sendTelegramAlert(alertMsg);
 
       console.log("[Attendance API] Clocked in successfully:", newRecord);
@@ -183,9 +194,9 @@ export async function POST(request: Request) {
       let isAdjusted = false;
       let adjustedLabel = '';
 
-      // [보정 규칙 1] 오전조 퇴근 15:30 보정: 오전(13시 이전 출근) 직원이 15:30 ~ 15:45 사이 퇴근 찍는 경우 15:30:00으로 기록
+      // [보정 규칙 1] 오전조 퇴근 15:30 보정: 오전(13시 이전 출근) 직원이 15:30 ~ 15:50 사이 퇴근 → 15:30:00 기록 (15:51 이후는 실제 시간)
       if (inHours < 13) {
-        if (outHours === 15 && outMinutes >= 30 && outMinutes <= 45) {
+        if (outHours === 15 && outMinutes >= 30 && outMinutes <= 50) {
           clockOutIso = new Date(`${today}T15:30:00+03:00`).toISOString();
           const adjustmentNote = `[Çıkış 보정] 실제 입력 시각: ${actualTimeStr}`;
           notesText = activeRecord.notes ? `${activeRecord.notes} | ${adjustmentNote}` : adjustmentNote;
@@ -193,9 +204,9 @@ export async function POST(request: Request) {
           adjustedLabel = '15:30:00 (오전조 기준 적용)';
         }
       } 
-      // [보정 규칙 2] 오후조 퇴근 22:00 보정: 오후(13시 이후 출근) 직원이 저녁 18시 ~ 밤 10시 사이 일찍 퇴근한 경우 22:00:00으로 보정
+      // [보정 규칙 2] 오후조 퇴근 22:00 보정: 오후(13시 이후 출근) 직원이 21:40 ~ 21:59 사이 퇴근 → 22:00:00 기록 (21:39 이전은 실제 시간)
       else {
-        if (outHours >= 18 && outHours < 22) {
+        if (outHours === 21 && outMinutes >= 40) {
           clockOutIso = new Date(`${today}T22:00:00+03:00`).toISOString();
           const adjustmentNote = `[Çıkış 보정] 실제 입력 시각: ${actualTimeStr}`;
           notesText = activeRecord.notes ? `${activeRecord.notes} | ${adjustmentNote}` : adjustmentNote;

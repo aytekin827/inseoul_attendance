@@ -135,14 +135,29 @@ export function calculateWorkHours(clockIn: string, clockOut: string | null, bre
   const inDate = new Date(clockIn);
   let outDate = new Date(clockOut);
 
-  // [보정 규칙] 오전조(13시 이전 출근) 퇴근 시각이 15:30 ~ 15:45 사이인 경우 15:30으로 계산
+  // [보정 규칙] 근무 시간 계산 시 시각 보정 (API 로직과 동일하게 적용)
   const inHours = getTurkeyHours(inDate);
+  const inMinutes = getTurkeyMinutes(inDate);
   const outHours = getTurkeyHours(outDate);
   const outMinutes = getTurkeyMinutes(outDate);
+  const workDate = getTurkeyDateString(inDate);
 
-  if (inHours < 13 && outHours === 15 && outMinutes >= 30 && outMinutes <= 45) {
-    const workDate = getTurkeyDateString(inDate);
-    outDate = new Date(`${workDate}T15:30:00+03:00`);
+  // 오전조 출근 보정: 05:00~08:59 → 09:00
+  if (inHours >= 5 && inHours < 9) {
+    inDate.setTime(new Date(`${workDate}T09:00:00+03:00`).getTime());
+  }
+  // 오후조 출근 보정: 13:00~15:29 → 15:30
+  else if (inHours >= 13 && (inHours < 15 || (inHours === 15 && inMinutes < 30))) {
+    inDate.setTime(new Date(`${workDate}T15:30:00+03:00`).getTime());
+  }
+
+  // 오전조 퇴근 보정: 출근이 13시 이전이고, 퇴근이 15:30~15:50 → 15:30 (15:51 이후는 실제 시간 표시)
+  if (getTurkeyHours(inDate) < 13 && outHours === 15 && outMinutes >= 30 && outMinutes <= 50) {
+    outDate.setTime(new Date(`${workDate}T15:30:00+03:00`).getTime());
+  }
+  // 오후조 퇴근 보정: 출근이 13시 이후이고, 퇴근이 21:40~21:59 → 22:00 (21:39 이전은 실제 시간 표시)
+  else if (getTurkeyHours(inDate) >= 13 && outHours === 21 && outMinutes >= 40) {
+    outDate.setTime(new Date(`${workDate}T22:00:00+03:00`).getTime());
   }
 
   const inTime = inDate.getTime();
